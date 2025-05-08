@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+/* Add these CSS variables */
+:root {
+  --red-500: #ef4444;
+  --purple-500: #a855f7;
+  --orange-500: #f97316;
+  --green-500: #22c55e;
+  --blue-500: #3b82f6;
+  --white-500: #f8fafc;
+}
+
+/* Add these utility classes for dynamic color usage */
+.bg-red-500 { background-color: var(--red-500); }
+.bg-purple-500 { background-color: var(--purple-500); }
+.bg-orange-500 { background-color: var(--orange-500); }
+.bg-green-500 { background-color: var(--green-500); }
+.bg-blue-500 { background-color: var(--blue-500); }
+.bg-white-500 { background-color: var(--white-500); }
+
+.border-red-500 { border-color: var(--red-500); }
+.border-purple-500 { border-color: var(--purple-500); }
+.border-orange-500 { border-color: var(--orange-500); }
+.border-green-500 { border-color: var(--green-500); }
+.border-blue-500 { border-color: var(--blue-500); }
+.border-white-500 { border-color: var(--white-500); }
