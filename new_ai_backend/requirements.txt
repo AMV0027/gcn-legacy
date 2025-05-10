@@ -1,0 +1,15 @@
+fastapi
+psycopg2-binary
+sentence-transformers
+numpy
+uvicorn
+pydantic
+python-multipart
+requests
+httpx
+ollama
+serpapi
+playwright
+bs4
+pdfplumber
+

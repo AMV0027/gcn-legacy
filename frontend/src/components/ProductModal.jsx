@@ -10,63 +10,111 @@ const ProductModal = ({ isOpen, onClose, onProductSelect }) => {
   });
   const [editingProduct, setEditingProduct] = useState(null);
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [error, setError] = useState("");
 
   const colors = ["red", "purple", "orange", "green", "blue", "white"];
 
   useEffect(() => {
-    fetchProducts();
-  }, []);
+    if (isOpen) {
+      fetchProducts();
+    }
+  }, [isOpen]);
 
   const fetchProducts = async () => {
     try {
       const response = await fetch("http://localhost:5000/api/products");
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       const data = await response.json();
       setProducts(data);
     } catch (error) {
       console.error("Error fetching products:", error);
+      setError("Failed to fetch products");
     }
+  };
+
+  const validateProduct = (product) => {
+    if (!product.title.trim()) {
+      setError("Product title is required");
+      return false;
+    }
+    if (!product.info.trim()) {
+      setError("Product information is required");
+      return false;
+    }
+    return true;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
+
+    const productToSave = editingProduct || newProduct;
+    if (!validateProduct(productToSave)) {
+      return;
+    }
+
     try {
       const url = editingProduct
         ? `http://localhost:5000/api/products/${editingProduct.id}`
         : "http://localhost:5000/api/products";
 
-      const method = editingProduct ? "PUT" : "POST";
-      const productData = editingProduct || newProduct;
-
       const response = await fetch(url, {
-        method,
+        method: editingProduct ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: productData.title,
-          info: productData.info,
-          color: productData.color,
+          title: productToSave.title.trim(),
+          info: productToSave.info.trim(),
+          color: productToSave.color,
         }),
       });
 
-      if (response.ok) {
-        fetchProducts();
-        setNewProduct({ title: "", info: "", color: "blue" });
-        setEditingProduct(null);
-        setShowColorPicker(false);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to save product");
       }
+
+      await fetchProducts();
+      setNewProduct({ title: "", info: "", color: "blue" });
+      setEditingProduct(null);
+      setShowColorPicker(false);
+      setError("");
     } catch (error) {
       console.error("Error saving product:", error);
+      setError(error.message || "Failed to save product");
     }
   };
 
   const deleteProduct = async (id) => {
     try {
-      await fetch(`http://localhost:5000/api/products/${id}`, {
+      const response = await fetch(`http://localhost:5000/api/products/${id}`, {
         method: "DELETE",
       });
-      fetchProducts();
+
+      if (!response.ok) {
+        throw new Error("Failed to delete product");
+      }
+
+      await fetchProducts();
     } catch (error) {
       console.error("Error deleting product:", error);
+      setError("Failed to delete product");
     }
+  };
+
+  const handleEdit = (product) => {
+    setEditingProduct(product);
+    setShowColorPicker(false);
+    setError("");
+  };
+
+  const handleCancel = () => {
+    setEditingProduct(null);
+    setNewProduct({ title: "", info: "", color: "blue" });
+    setShowColorPicker(false);
+    setError("");
+    onClose();
   };
 
   const ColorPicker = ({ selectedColor, onColorSelect }) => (
@@ -75,11 +123,10 @@ const ProductModal = ({ isOpen, onClose, onProductSelect }) => {
         {colors.map((color) => (
           <button
             key={color}
+            type="button"
             onClick={() => {
               onColorSelect(color);
-              setTimeout(() => {
-                setShowColorPicker(false);
-              }, 100);
+              setShowColorPicker(false);
             }}
             className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${
               selectedColor === color ? "border-white" : "border-transparent"
@@ -101,6 +148,12 @@ const ProductModal = ({ isOpen, onClose, onProductSelect }) => {
     <div className="fixed inset-0 bg-transparent backdrop-blur-md flex items-center justify-center z-50">
       <div className="bg-zinc-800 p-6 rounded-lg w-[600px] max-h-[80vh] overflow-y-auto">
         <h2 className="text-2xl text-blue-400 mb-4">Product Management</h2>
+
+        {error && (
+          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded text-red-400">
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="mb-6">
           <div className="flex gap-4 mb-2">
@@ -158,12 +211,15 @@ const ProductModal = ({ isOpen, onClose, onProductSelect }) => {
           <div className="flex justify-end gap-2">
             <button
               type="button"
-              onClick={onClose}
-              className="px-4 py-2 bg-zinc-600 rounded"
+              onClick={handleCancel}
+              className="px-4 py-2 bg-zinc-600 rounded hover:bg-zinc-500 transition-colors"
             >
               Cancel
             </button>
-            <button type="submit" className="px-4 py-2 bg-blue-500 rounded">
+            <button
+              type="submit"
+              className="px-4 py-2 bg-blue-500 rounded hover:bg-blue-600 transition-colors"
+            >
               {editingProduct ? "Update" : "Add"} Product
             </button>
           </div>
@@ -173,7 +229,7 @@ const ProductModal = ({ isOpen, onClose, onProductSelect }) => {
           {products.map((product) => (
             <div
               key={product.id}
-              className={`flex items-center justify-between bg-zinc-700 p-3 rounded border-l-4 border-${product.color}-500`}
+              className="flex items-center justify-between bg-zinc-700 p-3 rounded border-l-4 hover:bg-zinc-600/50 transition-colors"
               style={{ borderColor: `var(--${product.color}-500)` }}
             >
               <div className="flex-1 flex items-center gap-3">
@@ -186,22 +242,22 @@ const ProductModal = ({ isOpen, onClose, onProductSelect }) => {
                     {product.title}
                   </h3>
                   <p className="text-sm text-gray-300">
-                    {`${product.info.split(/\s+/).slice(0, 50).join(" ")}${
-                      product.info.split(/\s+/).length > 50 ? "..." : ""
-                    }`}
+                    {product.info.length > 100
+                      ? `${product.info.substring(0, 100)}...`
+                      : product.info}
                   </p>
                 </div>
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setEditingProduct(product)}
-                  className="p-2 text-yellow-400 hover:bg-zinc-600 rounded"
+                  onClick={() => handleEdit(product)}
+                  className="p-2 text-yellow-400 hover:bg-zinc-600 rounded transition-colors"
                 >
                   <FaEdit />
                 </button>
                 <button
                   onClick={() => deleteProduct(product.id)}
-                  className="p-2 text-red-400 hover:bg-zinc-600 rounded"
+                  className="p-2 text-red-400 hover:bg-zinc-600 rounded transition-colors"
                 >
                   <FaTrash />
                 </button>

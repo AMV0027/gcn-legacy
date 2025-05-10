@@ -4,12 +4,30 @@ FROM node:20-alpine
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies including PostgreSQL client
+# Install system dependencies including PostgreSQL client and canvas dependencies
 RUN apk add --no-cache \
     python3 \
     py3-pip \
     postgresql-client \
-    build-essential
+    build-base \
+    nss \
+    ca-certificates \
+    ttf-freefont \
+    nodejs \
+    yarn \
+    cairo-dev \
+    pango-dev \
+    jpeg-dev \
+    giflib-dev \
+    pixman-dev \
+    pkgconfig \
+    libpng-dev \
+    libjpeg-turbo-dev \
+    musl-dev \
+    zlib-dev \
+    glib-dev \
+    freetype-dev \
+    expat-dev
 
 # Copy package files
 COPY backend/package*.json ./

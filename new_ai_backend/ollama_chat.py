@@ -2,7 +2,7 @@ from ollama import Client
 import json
 from typing import Dict, Any, Optional
 
-def chat_ollama(sys_prompt: str, user_prompt: str, model: str = "gemma3:1b") -> str:
+def chat_ollama(sys_prompt: str, user_prompt: str, model: str = "gemma3:4b") -> str:
     try:
         client = Client(host='http://localhost:11434')
         

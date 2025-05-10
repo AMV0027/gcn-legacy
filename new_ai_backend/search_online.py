@@ -5,7 +5,7 @@ import os
 from ollama_chat import chat_ollama
 
 # Get SerpAPI key from environment variable
-SERPAPI_KEY = os.getenv("SERPAPI_KEY", "a6b3928073576a6c62c095966cc44e79a062a80c176bc12677bee97183af05fb")
+SERPAPI_KEY = os.getenv("SERPAPI_KEY", "75095060be745b84a9352567e0ca4d096b4c24763960161540f43ea4e45d299b<stopped for testing>")
 
 def get_search_query(search_query: str) -> str:
     """
@@ -56,7 +56,7 @@ def get_search_query(search_query: str) -> str:
         response = chat_ollama(
             system_prompt, 
             f"Generate a specific image search query for: {search_query}", 
-            model="gemma3:1b"
+            model="gemma3:4b"
         )
         return response.strip()
     except Exception as e:

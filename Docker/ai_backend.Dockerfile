@@ -9,13 +9,44 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     postgresql-client \
     curl \
+    wget \
+    libnss3 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2 \
+    libpangocairo-1.0-0 \
+    libpango-1.0-0 \
+    libgtk-3-0 \
+    libxss1 \
+    libxtst6 \
+    libxinerama1 \
+    libglu1-mesa \
+    fonts-liberation \
+    libappindicator3-1 \
+    xdg-utils \
     && rm -rf /var/lib/apt/lists/*
+
+# Set pip timeout
+ENV PIP_DEFAULT_TIMEOUT=300
 
 # Copy requirements file
 COPY new_ai_backend/requirements.txt .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Upgrade pip first
+RUN pip install --upgrade pip
+
+# Install Python dependencies with longer timeout, retries, and resume
+RUN pip install -r requirements.txt
+
+# Install Playwright browsers
+RUN playwright install
 
 # Copy the rest of the AI backend code
 COPY new_ai_backend/ .

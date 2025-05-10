@@ -42,10 +42,10 @@ from upload_pdf import (
 
 # Database Configuration
 DB_CONFIG = {
-    "dbname": os.getenv("POSTGRES_DB", "gcn_db"),
+    "dbname": os.getenv("POSTGRES_DB", "gcn-legacy"),
     "user": os.getenv("POSTGRES_USER", "postgres"),
-    "password": os.getenv("POSTGRES_PASSWORD", "postgres"),
-    "host": os.getenv("POSTGRES_HOST", "postgres"),
+    "password": os.getenv("POSTGRES_PASSWORD", "12345"),
+    "host": os.getenv("POSTGRES_HOST", "172.19.171.58"),
     "port": os.getenv("POSTGRES_PORT", "5432")
 }
 
@@ -54,7 +54,7 @@ app = FastAPI()
 # Initialize text model
 text_model = SentenceTransformer('all-MiniLM-L6-v2')
 
-serp_api_key = "a6b3928073576a6c62c095966cc44e79a062a80c176bc12677bee97183af05fb"
+serp_api_key = "75095060be745b84a9352567e0ca4d096b4c24763960161540f43ea4e45d299b<stopped for testing>"
 
 # CORS Configuration
 app.add_middleware(
@@ -91,13 +91,13 @@ def get_search_query(search_query: str) -> str:
         "Return ONLY the search phrase without any additional text or explanations."
     )
     try:
-        response = chat_ollama(system_prompt, search_query, model="gemma3:1b")
+        response = chat_ollama(system_prompt, search_query, model="gemma3:4b")
         return response.strip()
     except Exception as e:
         print(f"Error generating search query: {e}")
         return search_query  # Fallback to original query
 
-def search_relevant_texts(query_vector: List[float], pdf_names: List[str], threshold: float = 0.6) -> List[dict]:
+def search_relevant_texts(query_vector: List[float], pdf_names: List[str], threshold: float = 0.4) -> List[dict]:
     """Search for relevant text chunks in the specified PDFs with improved relevance."""
     try:
         conn = get_db_connection()
@@ -122,51 +122,47 @@ def search_relevant_texts(query_vector: List[float], pdf_names: List[str], thres
                     vectors = vectors
                 else:
                     continue
-                    
-                # Group text chunks by page for better context
-                page_chunks = {}
-                for vec_info in vectors:
-                    page_num = vec_info['page_number']
-                    if page_num not in page_chunks:
-                        page_chunks[page_num] = []
-                    page_chunks[page_num].append({
-                        'text': vec_info['text'],
-                        'similarity': vector_similarity(query_vector, vec_info['vector'])
-                    })
                 
-                # Process each page's chunks
-                for page_num, chunks in page_chunks.items():
-                    # Sort chunks by similarity
-                    chunks.sort(key=lambda x: x['similarity'], reverse=True)
-                    
-                    # Get the best matching chunk for this page
-                    best_chunk = chunks[0]
-                    if best_chunk['similarity'] >= threshold:
-                        # Get surrounding context
-                        context = " ".join([chunk['text'] for chunk in chunks[:3]])
-                        
-                        relevant_texts.append({
+                # Calculate both max and average similarity for chunks
+                chunk_matches = []
+                for vec_info in vectors:
+                    similarity = vector_similarity(query_vector, vec_info['vector'])
+                    if similarity >= threshold:
+                        chunk_matches.append({
                             'pdf_name': pdf_name,
-                            'text': context,
-                            'page_number': page_num,
-                            'similarity': best_chunk['similarity'],
+                            'text': vec_info['text'],
+                            'page_number': vec_info['page_number'],
+                            'similarity': similarity,
                             'pdf_info': pdf_info
                         })
+                
+                # Sort chunks by similarity and take top 3 per PDF
+                if chunk_matches:
+                    chunk_matches.sort(key=lambda x: x['similarity'], reverse=True)
+                    relevant_texts.extend(chunk_matches[:3])
         
-        # Sort by similarity and return top chunks
+        # Sort all matches by similarity and return top results
         relevant_texts.sort(key=lambda x: x['similarity'], reverse=True)
-        return relevant_texts[:5]  # Return top 5 most relevant chunks
+        
+        if not relevant_texts:
+            print(f"\nNo relevant text chunks found above threshold {threshold}")
+        else:
+            print(f"\nFound {len(relevant_texts)} relevant text chunks")
+            
+        return relevant_texts[:5]
         
     except Exception as e:
         print(f"Error searching relevant texts: {e}")
         traceback.print_exc()
         return []
     finally:
-        cur.close()
-        conn.close()
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 def organize_pdf_references(relevant_texts: List[dict]) -> List[dict]:
-    """Organize PDF references with improved context and relevance."""
+    """Organize PDF references with improved context and handle hyphenated page numbers."""
     pdf_refs = {}
     
     for text in relevant_texts:
@@ -174,30 +170,44 @@ def organize_pdf_references(relevant_texts: List[dict]) -> List[dict]:
         if pdf_name not in pdf_refs:
             pdf_refs[pdf_name] = {
                 "name": pdf_name,
-                "page_number": [],
+                "page_numbers": set(),  # Use set to handle duplicates
                 "relevance_score": 0,
                 "context": [],
                 "pdf_info": text.get('pdf_info', {})
             }
         
-        # Add page number if not already present
-        if text['page_number'] not in pdf_refs[pdf_name]["page_number"]:
-            pdf_refs[pdf_name]["page_number"].append(text['page_number'])
-            pdf_refs[pdf_name]["context"].append({
-                "page": text['page_number'],
-                "text": text['text'][:200] + "..." if len(text['text']) > 200 else text['text']
-            })
+        # Handle page numbers with hyphens
+        page_str = text['page_number']
+        if '-' in page_str:
+            start, end = map(int, page_str.split('-'))
+            pdf_refs[pdf_name]["page_numbers"].update(range(start, end + 1))
+        else:
+            try:
+                page_num = int(page_str)
+                pdf_refs[pdf_name]["page_numbers"].add(page_num)
+            except ValueError:
+                print(f"Warning: Invalid page number format: {page_str}")
+                continue
         
-        # Update relevance score
+        # Update context and relevance
+        pdf_refs[pdf_name]["context"].append({
+            "page": page_str,
+            "text": text['text'][:200] + "..." if len(text['text']) > 200 else text['text']
+        })
+        
         pdf_refs[pdf_name]["relevance_score"] = max(
             pdf_refs[pdf_name]["relevance_score"],
             text['similarity']
         )
     
-    # Convert to list and sort by relevance
-    refs_list = list(pdf_refs.values())
-    refs_list.sort(key=lambda x: x['relevance_score'], reverse=True)
+    # Convert page_numbers set to sorted list for output
+    refs_list = []
+    for ref in pdf_refs.values():
+        ref["page_numbers"] = sorted(list(ref["page_numbers"]))
+        refs_list.append(ref)
     
+    # Sort by relevance
+    refs_list.sort(key=lambda x: x['relevance_score'], reverse=True)
     return refs_list
 
 def generate_chat_summary(query: str, answer: str) -> dict:
@@ -220,7 +230,7 @@ def generate_chat_summary(query: str, answer: str) -> dict:
         """
         
         chat_content = f"User Query: {query}\nAnswer: {answer}"
-        content = chat_ollama(system_prompt, chat_content, model="gemma3:1b")
+        content = chat_ollama(system_prompt, chat_content, model="gemma3:4b")
         return extract_json(content)
         
     except Exception as e:
@@ -230,7 +240,7 @@ def generate_chat_summary(query: str, answer: str) -> dict:
             "key_points": ["No key points available"]
         }
 
-def get_chat_context(chat_id: str, limit: int = 3) -> str:
+def get_chat_context(chat_id: str, limit: int = 0) -> str:
     """Retrieve recent chat context for the given chat ID."""
     try:
         conn = get_db_connection()
@@ -275,29 +285,44 @@ def generate_final_answer(query: str, context: str, chat_id: Optional[str] = Non
         chat_context = get_chat_context(chat_id) if chat_id else ""
         
         system_prompt = f"""
-        You are a regulatory compliance assistant. Use the following information to answer the query:
-        
+        You are an expert regulatory compliance assistant specializing in analyzing and explaining compliance requirements, standards, and risks in clear, detailed terms. Use the following inputs to provide comprehensive, well-structured, and informative answers. Format all responses using Markdown.
+
+        Inputs:
         Available Context:
         {context}
-        
+
         Chat History:
         {chat_context}
-        
-        Guidelines:
-        1. Be precise and factual
-        2. Cite sources using [Source] or [Page X] notation
-        3. If using online sources, include relevant URLs
-        4. If information is incomplete, acknowledge limitations
-        5. Maintain professional tone
-        6. STRICTLY DONT MENTION ANY DISCLAIMER.
+
+        Response Guidelines:
+        Use proper Markdown formatting for clarity and organization:
+
+        Use headings (#, ##, ###)
+
+        Use bullet points, numbered lists, blockquotes, and tables
+
+        Highlight key terms with **bold**, _italic_, or inline code
+
+        Include code blocks for any technical content (e.g., JSON, schemas)
+
+        Incorporate visuals (e.g., diagrams, tables, or linked images) if they help clarify complex concepts. Use Markdown syntax to embed or link them.
+
+        Begin with a concise summary, followed by in-depth explanation, context, examples, and analysis.
+
+        Cite all sources using title notation, like this: ^Regulation Title^, ^ISO 27001:2022^, or ^https://example.com/document.pdf^
+
+        Be accurate, specific, and context-driven — explain what the regulation says, why it matters, and how it applies.
+
+        Acknowledge gaps or limits if the provided context is incomplete. If relevant, suggest where missing information might be obtained.
+
+        Maintain a formal, professional tone suitable for compliance, legal, or executive audiences.
+
+        STRICTLY DO NOT include any disclaimers or general legal warnings unless explicitly included in the context.
         """
         
         # Use chat_ollama for final answer generation
-        answer = chat_ollama(system_prompt, query, model="gemma3:1b")
-        
-        if not context.startswith("Online Sources"):
-            return answer
-        return wrap_final_answer(answer, query)
+        answer = chat_ollama(system_prompt, query, model="gemma3:4b")
+        return answer
         
     except Exception as e:
         print(f"Error generating final answer: {e}")
@@ -320,36 +345,12 @@ def get_related_queries(query: str) -> List[str]:
     """
 
     try:
-        response = chat_ollama(system_prompt, query, model="gemma3:1b")
+        response = chat_ollama(system_prompt, query, model="gemma3:4b")
         extracted_json = extract_json(response)
         return extracted_json.get("relevant_queries", [])
     except Exception as e:
         print(f"Error generating related queries: {e}")
         return []
-
-def generate_conversational_answer(query: str, chat_context: str) -> str:
-    """Generate an answer based on chat history and general knowledge."""
-    system_prompt = """
-    You are a knowledgeable compliance assistant. Generate a response using the provided information.
-    If asked about previous conversations:
-    1. Summarize the key points from the chat history
-    2. Highlight important compliance topics discussed
-    3. Note any regulatory requirements or standards mentioned
-    4. Connect related topics across conversations
-    5. Suggest relevant follow-up areas
-    
-    If no relevant information is found:
-    1. Acknowledge the lack of specific history
-    2. Provide general compliance guidance
-    3. Suggest relevant compliance topics to explore
-    
-    Always maintain a professional but conversational tone.
-    """
-    try:
-        response = chat_ollama(system_prompt, f"Chat History:\n{chat_context}\n\nUser Query: {query}")
-        return response['message']['content']
-    except Exception as e:
-        return "I apologize, but I'm having trouble processing the chat history. Would you like to discuss a specific compliance topic instead?"
 
 def generate_chat_name(query: str) -> str:
     """Generate a meaningful chat name from the user's query."""
@@ -376,7 +377,7 @@ def generate_chat_name(query: str) -> str:
     Return ONLY the title, nothing else.
     """
     try:
-        response = chat_ollama(system_prompt, query, model="gemma3:1b")
+        response = chat_ollama(system_prompt, query, model="gemma3:4b")
         # Clean and format the response
         chat_name = response.strip()
         # Remove any quotes and extra whitespace
@@ -410,7 +411,9 @@ def get_best_matches(extracted_names: List[str], available_names: List[str]) -> 
     return best_matches
 
 def identify_relevant_pdfs(query: str) -> List[str]:
-    """Use text similarity to identify relevant PDFs."""
+    """Use text similarity and exact matches to identify relevant PDFs."""
+    conn = None
+    cur = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
@@ -421,55 +424,82 @@ def identify_relevant_pdfs(query: str) -> List[str]:
         
         if not rows:
             return []
-            
-        # Encode query
+        
+        # First, try to find exact matches or close matches in PDF names (case insensitive)
+        pdf_names = [row[0] for row in rows]
+        query_lower = query.lower()
+        exact_matches = [name for name in pdf_names if query_lower in name.lower()]
+        
+        # Store all PDF relevance scores for feedback
+        all_pdf_scores = []
+        
+        # If no exact matches, try semantic search
         query_vector = text_model.encode(query).tolist()
         
-        relevant_pdfs = []
         for pdf_name, text_vectors in rows:
-            if text_vectors:  # Check if text_vectors exists
-                vectors = json.loads(text_vectors) if isinstance(text_vectors, str) else text_vectors
-                # Calculate max similarity for this PDF
-                max_similarity = max(
-                    vector_similarity(query_vector, vec_info['vector'])
-                    for vec_info in vectors
-                )
-                if max_similarity > 0.4:  # Adjust threshold as needed
-                    relevant_pdfs.append((pdf_name, max_similarity))
+            if not text_vectors:
+                continue
+                
+            vectors = json.loads(text_vectors) if isinstance(text_vectors, str) else text_vectors
+            
+            # Calculate similarities for each chunk
+            chunk_similarities = []
+            chunk_texts = []
+            for vec_info in vectors:
+                similarity = vector_similarity(query_vector, vec_info['vector'])
+                chunk_similarities.append(similarity)
+                chunk_texts.append(vec_info['text'])
+            
+            # Get both max and average similarity for better relevance
+            if chunk_similarities:
+                max_similarity = max(chunk_similarities)
+                avg_similarity = sum(chunk_similarities) / len(chunk_similarities)
+                # Combined score with more weight to max similarity
+                combined_score = (max_similarity * 0.7) + (avg_similarity * 0.3)
+                
+                # Store score and best matching chunk for feedback
+                best_chunk_idx = chunk_similarities.index(max_similarity)
+                all_pdf_scores.append({
+                    "name": pdf_name,
+                    "score": combined_score,
+                    "max_similarity": max_similarity,
+                    "avg_similarity": avg_similarity,
+                    "best_matching_text": chunk_texts[best_chunk_idx][:200] + "..." if len(chunk_texts[best_chunk_idx]) > 200 else chunk_texts[best_chunk_idx]
+                })
         
-        # Sort by relevance and return top 5
-        relevant_pdfs.sort(key=lambda x: x[1], reverse=True)
-        return [pdf[0] for pdf in relevant_pdfs[:5]]
+        # Sort all PDFs by relevance
+        all_pdf_scores.sort(key=lambda x: x["score"], reverse=True)
+        
+        # Get relevant PDFs (score > 0.4)
+        relevant_pdfs = [pdf["name"] for pdf in all_pdf_scores if pdf["score"] >= 0.4]
+        
+        # If we have exact matches, prioritize them
+        if exact_matches:
+            # Combine exact matches with high-scoring semantic matches
+            relevant_pdfs = list(set(exact_matches + relevant_pdfs))
+        
+        # Print feedback about PDF relevance
+        print("\nPDF Relevance Scores:")
+        for pdf in all_pdf_scores:
+            status = "SELECTED" if pdf["name"] in relevant_pdfs else "NOT SELECTED"
+            print(f"\nPDF: {pdf['name']}")
+            print(f"Status: {status}")
+            print(f"Combined Score: {pdf['score']:.3f}")
+            print(f"Max Similarity: {pdf['max_similarity']:.3f}")
+            print(f"Avg Similarity: {pdf['avg_similarity']:.3f}")
+            print(f"Best matching text: {pdf['best_matching_text']}")
+        
+        return relevant_pdfs[:5]  # Return top 5 most relevant PDFs
         
     except Exception as e:
         print(f"Error identifying relevant PDFs: {e}")
+        traceback.print_exc()
         return []
     finally:
-        cur.close()
-        conn.close()
-
-def wrap_final_answer(answer: str, query: str) -> str:
-    """Add an additional layer of processing to improve answer quality using Ollama."""
-    system_prompt = """
-    You are an expert compliance assistant. Review and enhance the following answer:
-    1. Ensure clarity and accuracy
-    2. Add relevant context if needed
-    3. Maintain professional tone
-    4. Keep the original meaning intact
-    5. Add any important regulatory references if applicable
-    6. Include proper citations for online references
-    7. Format URLs clearly when present
-    """
-    
-    try:
-        return chat_ollama(
-            system_prompt,
-            f"Original Query: {query}\n\nDraft Answer: {answer}",
-            model="gemma3:1b"
-        )
-    except Exception as e:
-        print(f"Error wrapping final answer: {e}")
-        return answer  # Return original answer if enhancement fails
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 @app.post("/api/upload-pdf")
 async def upload_pdf(file: UploadFile = File(...)):
@@ -552,6 +582,7 @@ async def process_query(request: QueryRequest) -> Dict:
         # Step 2: Extract relevant content and references
         pdf_context = ""
         relevant_texts = []
+        pdf_refs = []
         
         if relevant_pdfs:
             query_vector = text_model.encode(query).tolist()
@@ -566,10 +597,15 @@ async def process_query(request: QueryRequest) -> Dict:
                 
                 # Organize PDF references with improved context
                 pdf_refs = organize_pdf_references(relevant_texts)
-            else:
-                pdf_refs = []
-        else:
-            pdf_refs = []
+                
+                # Ensure each reference has page_numbers field
+                for ref in pdf_refs:
+                    if "page_numbers" not in ref:
+                        ref["page_numbers"] = sorted(list({
+                            int(text["page_number"]) 
+                            for text in relevant_texts 
+                            if text["pdf_name"] == ref["name"] and text["page_number"].isdigit()
+                        }))
         
         # Step 3: Get online context if needed
         context = pdf_context
@@ -622,7 +658,7 @@ def generate_product_queries(product_title: str, product_info: str) -> List[str]
     """
     try:
         context = f"Product Title: {product_title}\nProduct Info: {product_info}"
-        response = chat_ollama(system_prompt, context, model="gemma3:1b")
+        response = chat_ollama(system_prompt, context, model="gemma3:4b")
         queries = json.loads(response)
         return queries[:3]  # Ensure we only return 3 queries
     except Exception as e:

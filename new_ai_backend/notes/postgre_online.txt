@@ -1,0 +1,16 @@
+sudo -u postgres psql
+sudo service postgresql start
+
+pip install -r requirements.txt
+
+restart if needed:
+sudo service postgresql restart
+
+// PostgreSQL Database Configuration
+const DB_CONFIG = {
+  user: "postgres",
+  host: "172.23.60.55",
+  database: "gcn-legacy",
+  password: "12345",
+  port: 5432,
+};

@@ -47,42 +47,68 @@ def create_tables():
         conn.close()
 
 def extract_pdf_text(pdf_bytes: bytes) -> str:
-    """Extracts text from PDF with page numbers."""
-    text = []
+    """Extracts text from PDF with page numbers for each word."""
+    text_with_pages = []
     try:
         with pdfplumber.open(BytesIO(pdf_bytes)) as pdf:
             for page_num, page in enumerate(pdf.pages, 1):
                 page_text = page.extract_text() or ""
-                text.append(f"{page_text}\n[page no; {page_num}]")
+                # Add page number for each word to track cross-page chunks
+                words = page_text.split()
+                for word in words:
+                    text_with_pages.append((word, str(page_num)))
     except Exception as e:
         print(f"Error extracting text: {e}")
-    return "\n\n".join(text)
+    return text_with_pages
 
-def extract_pdf_info(text: str) -> str:
-    """Extract first 300 words as PDF info."""
-    words = text.split()[:300]
+def extract_pdf_info(text_with_pages: List[tuple]) -> str:
+    """Extract first 300 words as PDF info from the word-page tuple list."""
+    if not text_with_pages:
+        return ""
+    
+    # Extract just the words from the tuples, ignoring page numbers
+    words = [word for word, _ in text_with_pages[:300]]
     return ' '.join(words)
 
-def text_to_vector(text: str) -> List[Dict]:
-    """Converts text to vectors with page numbers."""
+def text_to_vector(text_with_pages: List[tuple]) -> List[Dict]:
+    """Converts text to vectors using overlapping chunks of max 20 words."""
     vectors = []
-    pages = re.split(r'\n\[page no; (\d+)\]', text)
-    current_page = 1
+    chunk_size = 20
+    overlap = 5  # Number of words to overlap between chunks
     
-    for i in range(0, len(pages)-1, 2):
+    if not text_with_pages:
+        return vectors
+    
+    # Process text in overlapping chunks
+    for i in range(0, len(text_with_pages), chunk_size - overlap):
         try:
-            text_chunk = pages[i].strip()
-            page_number = int(pages[i+1]) if i+1 < len(pages) else current_page
-            if text_chunk:
+            # Get chunk of words and their page numbers
+            chunk = text_with_pages[i:i + chunk_size]
+            if not chunk:
+                continue
+                
+            # Separate words and page numbers
+            words, pages = zip(*chunk)
+            text_chunk = ' '.join(words)
+            
+            # Determine page range for this chunk
+            unique_pages = sorted(set(pages))
+            if len(unique_pages) == 1:
+                page_str = unique_pages[0]
+            else:
+                page_str = f"{unique_pages[0]}-{unique_pages[-1]}"
+            
+            if text_chunk.strip():
                 vector = text_model.encode(text_chunk, convert_to_tensor=False).tolist()
                 vectors.append({
                     "vector": vector,
                     "text": text_chunk,
-                    "page_number": page_number
+                    "page_number": page_str
                 })
-                current_page = page_number
         except Exception as e:
             print(f"Error processing text chunk: {e}")
+            continue
+    
     return vectors
 
 def store_in_database(pdf_name: str, pdf_bytes: bytes, vectors: List[Dict], pdf_info: str) -> bool:
@@ -168,3 +194,47 @@ def update_pdf_info(pdf_name: str, new_info: str) -> bool:
     finally:
         cur.close()
         conn.close()
+
+def organize_pdf_references(relevant_texts: List[dict]) -> List[dict]:
+    """Organize PDF references with improved context and handle hyphenated page numbers."""
+    pdf_refs = {}
+    
+    for text in relevant_texts:
+        pdf_name = text['pdf_name']
+        if pdf_name not in pdf_refs:
+            pdf_refs[pdf_name] = {
+                "name": pdf_name,
+                "page_numbers": set(),  # Use set to handle duplicates
+                "relevance_score": 0,
+                "context": [],
+                "pdf_info": text.get('pdf_info', {})
+            }
+        
+        # Handle page numbers with hyphens
+        page_str = text['page_number']
+        if '-' in page_str:
+            start, end = map(int, page_str.split('-'))
+            pdf_refs[pdf_name]["page_numbers"].update(range(start, end + 1))
+        else:
+            pdf_refs[pdf_name]["page_numbers"].add(int(page_str))
+        
+        # Update context and relevance
+        pdf_refs[pdf_name]["context"].append({
+            "page": page_str,
+            "text": text['text'][:200] + "..." if len(text['text']) > 200 else text['text']
+        })
+        
+        pdf_refs[pdf_name]["relevance_score"] = max(
+            pdf_refs[pdf_name]["relevance_score"],
+            text['similarity']
+        )
+    
+    # Convert page_numbers set to sorted list for output
+    refs_list = []
+    for ref in pdf_refs.values():
+        ref["page_numbers"] = sorted(list(ref["page_numbers"]))
+        refs_list.append(ref)
+    
+    # Sort by relevance
+    refs_list.sort(key=lambda x: x['relevance_score'], reverse=True)
+    return refs_list

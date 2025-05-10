@@ -255,32 +255,42 @@ app.get("/api/products", async (req, res) => {
 
 // Create new product
 app.post("/api/products", async (req, res) => {
-  const { title, info } = req.body;
-  const colors = ["red", "purple", "orange", "green", "blue", "white"];
   try {
-    // Get existing products to determine next color
-    const existingProducts = await db.query("SELECT color FROM products");
-    const usedColors = existingProducts.rows.map((p) => p.color);
-    const availableColor =
-      colors.find((c) => !usedColors.includes(c)) || colors[0];
+    const { title, info, color } = req.body;
 
+    // Validate required fields
+    if (!title || !title.trim()) {
+      return res.status(400).json({ error: "Product title is required" });
+    }
+    if (!info || !info.trim()) {
+      return res.status(400).json({ error: "Product information is required" });
+    }
+
+    const colors = ["red", "purple", "orange", "green", "blue", "white"];
+    const selectedColor = color || colors[0];
+
+    if (!colors.includes(selectedColor)) {
+      return res.status(400).json({ error: "Invalid color selected" });
+    }
+
+    // Insert the new product
     const result = await db.query(
       "INSERT INTO products (title, info, color) VALUES ($1, $2, $3) RETURNING *",
-      [title, info, availableColor]
+      [title.trim(), info.trim(), selectedColor]
     );
 
     // Generate and store related queries
     try {
       await axios.post("http://localhost:8000/api/generate-product-queries", {
-        title,
-        info,
+        title: title.trim(),
+        info: info.trim(),
       });
     } catch (error) {
       console.error("Error generating product queries:", error);
       // Continue with product creation even if query generation fails
     }
 
-    res.json(result.rows[0]);
+    res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error("Error creating product:", error);
     res.status(500).json({ error: "Failed to create product" });
@@ -289,16 +299,39 @@ app.post("/api/products", async (req, res) => {
 
 // Update product
 app.put("/api/products/:id", async (req, res) => {
-  const { id } = req.params;
-  const { title, info, color } = req.body;
   try {
-    const result = await db.query(
-      "UPDATE products SET title = $1, info = $2, color = $3 WHERE id = $4 RETURNING *",
-      [title, info, color, id]
+    const { id } = req.params;
+    const { title, info, color } = req.body;
+
+    // Validate required fields
+    if (!title || !title.trim()) {
+      return res.status(400).json({ error: "Product title is required" });
+    }
+    if (!info || !info.trim()) {
+      return res.status(400).json({ error: "Product information is required" });
+    }
+
+    const colors = ["red", "purple", "orange", "green", "blue", "white"];
+    if (!colors.includes(color)) {
+      return res.status(400).json({ error: "Invalid color selected" });
+    }
+
+    // Check if product exists
+    const existingProduct = await db.query(
+      "SELECT * FROM products WHERE id = $1",
+      [id]
     );
-    if (result.rows.length === 0) {
+
+    if (existingProduct.rows.length === 0) {
       return res.status(404).json({ error: "Product not found" });
     }
+
+    // Update the product
+    const result = await db.query(
+      "UPDATE products SET title = $1, info = $2, color = $3, updated_at = NOW() WHERE id = $4 RETURNING *",
+      [title.trim(), info.trim(), color, id]
+    );
+
     res.json(result.rows[0]);
   } catch (error) {
     console.error("Error updating product:", error);
@@ -308,15 +341,22 @@ app.put("/api/products/:id", async (req, res) => {
 
 // Delete product
 app.delete("/api/products/:id", async (req, res) => {
-  const { id } = req.params;
   try {
-    const result = await db.query(
-      "DELETE FROM products WHERE id = $1 RETURNING *",
+    const { id } = req.params;
+
+    // Check if product exists
+    const existingProduct = await db.query(
+      "SELECT * FROM products WHERE id = $1",
       [id]
     );
-    if (result.rows.length === 0) {
+
+    if (existingProduct.rows.length === 0) {
       return res.status(404).json({ error: "Product not found" });
     }
+
+    // Delete the product
+    await db.query("DELETE FROM products WHERE id = $1", [id]);
+
     res.json({ message: "Product deleted successfully" });
   } catch (error) {
     console.error("Error deleting product:", error);

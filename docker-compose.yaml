@@ -1,7 +1,7 @@
 services:
   frontend:
     build:
-      context: ..
+      context: .
       dockerfile: Docker/frontend.Dockerfile
     ports:
       - "3000:3000"
@@ -27,7 +27,7 @@ services:
 
   backend:
     build:
-      context: ..
+      context: .
       dockerfile: Docker/backend.Dockerfile
     expose:
       - "5000"
@@ -55,7 +55,7 @@ services:
 
   ai_backend:
     build:
-      context: ..
+      context: .
       dockerfile: Docker/ai_backend.Dockerfile
     expose:
       - "5001"
