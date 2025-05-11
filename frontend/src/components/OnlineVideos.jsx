@@ -10,7 +10,7 @@ function OnlineVideos({ videos = [] }) {
         onClick={() => setShowVideos(!showVideos)}
         className="border text-sm flex items-center justify-center gap-2 hover:text-blue-400 hover:border-blue-400/30 border-zinc-700/50 text-poppins rounded-lg p-2 transition-all duration-300 bg-zinc-800/50 hover:bg-zinc-700/50"
       >
-        Search Videos <FaPlus className="text-blue-400" />
+        Reference Videos <FaPlus className="text-blue-400" />
       </button>
 
       <div className="flex flex-col gap-3">

@@ -23,18 +23,31 @@ const RelevantDefaultQueries = ({ onQuerySelect }) => {
   }, []);
 
   return (
-    <div className="mt-8 w-full max-w-4xl px-4">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div className="mt-8 w-full max-w-4xl mx-auto px-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         {randomQueries.map((query, index) => (
           <button
             key={index}
             onClick={() => onQuerySelect(query)}
-            className="w-full text-left p-4 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-lg border border-zinc-700/50 hover:border-blue-400/30 transition-all duration-300 group h-32 flex flex-col justify-between"
+            className="relative w-full text-left p-4 bg-zinc-800/40 hover:bg-zinc-700/40 
+                     rounded-xl border border-zinc-700/30 hover:border-blue-500/40 
+                     transition-all duration-300 group h-36 flex flex-col justify-between 
+                     shadow-lg hover:shadow-blue-500/5"
           >
-            <span className="text-sm text-zinc-300 group-hover:text-blue-400 transition-colors duration-300 line-clamp-3">
+            <div
+              className="text-sm text-zinc-300 group-hover:text-blue-400 
+                          transition-colors duration-300 line-clamp-3 font-medium"
+            >
               {query}
-            </span>
-            <FaPaperPlane className="text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300 self-end" />
+            </div>
+            <div className="flex justify-end w-full">
+              <FaPaperPlane
+                className="w-5 h-5 text-zinc-500 group-hover:text-blue-400 
+                                    opacity-50 group-hover:opacity-100 
+                                    transition-all duration-300 transform 
+                                    group-hover:translate-x-1 group-hover:-translate-y-1"
+              />
+            </div>
           </button>
         ))}
       </div>

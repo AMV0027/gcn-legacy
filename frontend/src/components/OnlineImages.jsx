@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { FaSpinner, FaPlus } from "react-icons/fa";
 import Image from "./Image";
 
@@ -6,6 +6,12 @@ function OnlineImages({ images = [] }) {
   const [showImages, setShowImages] = useState(false);
   const [loadedImages, setLoadedImages] = useState({});
   const [imageErrors, setImageErrors] = useState({});
+
+  // Reset states when images prop changes
+  useEffect(() => {
+    setLoadedImages({});
+    setImageErrors({});
+  }, [images]);
 
   const handleImageLoad = (imageUrl) => {
     setLoadedImages((prev) => ({
@@ -19,7 +25,13 @@ function OnlineImages({ images = [] }) {
       ...prev,
       [imageUrl]: true,
     }));
+    console.error(`Failed to load image: ${imageUrl}`);
   };
+
+  // If there are no images, don't render anything
+  if (!images || images.length === 0) {
+    return null;
+  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -27,10 +39,10 @@ function OnlineImages({ images = [] }) {
         onClick={() => setShowImages(!showImages)}
         className="border text-sm flex items-center justify-center gap-2 hover:text-blue-400 hover:border-blue-400/30 border-zinc-700/50 text-poppins rounded-lg p-2 transition-all duration-300 bg-zinc-800/50 hover:bg-zinc-700/50"
       >
-        Search Images <FaPlus className="text-blue-400" />
+        Reference Images <FaPlus className="text-blue-400" />
       </button>
       <div>
-        {showImages && images && images.length > 0 && (
+        {showImages && (
           <div
             className={`grid grid-cols-1 sm:grid-cols-2 gap-3 ${
               showImages ? "opacity-100" : "opacity-0"

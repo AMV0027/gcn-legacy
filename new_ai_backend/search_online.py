@@ -5,7 +5,7 @@ import os
 from ollama_chat import chat_ollama
 
 # Get SerpAPI key from environment variable
-SERPAPI_KEY = os.getenv("SERPAPI_KEY", "75095060be745b84a9352567e0ca4d096b4c24763960161540f43ea4e45d299b<stopped for testing>")
+SERPAPI_KEY = os.getenv("SERPAPI_KEY", "7b866668a4ef6ff88aa85124d24f84e4192ce3c00b235ce94a40378ac20f7e16")
 
 def get_search_query(search_query: str) -> str:
     """

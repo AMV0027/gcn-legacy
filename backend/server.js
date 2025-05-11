@@ -5,7 +5,6 @@ const path = require("path");
 const axios = require("axios");
 const crypto = require("crypto");
 const multer = require("multer");
-const { createProxyMiddleware } = require("http-proxy-middleware");
 const { initializeDatabase, db } = require("./dbInit");
 require("dotenv").config();
 
@@ -122,11 +121,36 @@ app.get("/api/chat-history/:chatId", async (req, res) => {
     }
 
     const result = await db.query(
-      `SELECT * FROM chat_history WHERE chat_id = $1 ORDER BY created_at ASC`,
+      `SELECT 
+        id,
+        chat_id,
+        query,
+        answer,
+        pdf_references,
+        online_images,
+        online_videos,
+        online_links,
+        relevant_queries,
+        settings,
+        chosen_pdfs,
+        created_at
+       FROM chat_history 
+       WHERE chat_id = $1 
+       ORDER BY created_at ASC`,
       [chatId]
     );
 
-    res.json(result.rows);
+    // Transform the results to ensure settings has default values if null
+    const messages = result.rows.map((row) => ({
+      ...row,
+      settings: row.settings || {
+        useOnlineContext: true,
+        useDatabase: true,
+      },
+      chosen_pdfs: row.chosen_pdfs || [],
+    }));
+
+    res.json(messages);
   } catch (error) {
     console.error("Error retrieving chat history:", error);
     res.status(500).json({ message: "Server error", error: error.message });
@@ -377,6 +401,11 @@ app.post("/api/query", async (req, res) => {
         query,
         org_query,
         chat_id: finalChatId,
+        settings: req.body.settings || {
+          useOnlineContext: true,
+          useDatabase: true,
+        },
+        chosen_pdfs: req.body.chosen_pdfs || [],
       },
       {
         headers: { "Content-Type": "application/json" },
@@ -396,8 +425,8 @@ app.post("/api/query", async (req, res) => {
     // Store in database
     await db.query(
       `INSERT INTO chat_history 
-       (chat_id, query, answer, pdf_references, online_images, online_videos, online_links, relevant_queries) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+       (chat_id, query, answer, pdf_references, online_images, online_videos, online_links, relevant_queries, settings, chosen_pdfs) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
       [
         finalChatId,
         query,
@@ -407,6 +436,13 @@ app.post("/api/query", async (req, res) => {
         JSON.stringify(data.online_videos || []),
         JSON.stringify(data.online_links || []),
         JSON.stringify(data.related_queries || []),
+        JSON.stringify(
+          data.settings || {
+            useOnlineContext: true,
+            useDatabase: true,
+          }
+        ),
+        JSON.stringify(data.chosen_pdfs || []),
       ]
     );
 

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 
-function Image({ src, alt }) {
+function Image({ src, alt, className, onLoad, onError, ...props }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const handleClick = (e) => {
@@ -14,7 +14,16 @@ function Image({ src, alt }) {
         onClick={handleClick}
         className="cursor-pointer transition-transform hover:scale-105"
       >
-        <img src={src} alt={alt} className="w-auto h-full object-cover rounded  hover:shadow-2xl" />
+        <img
+          src={src}
+          alt={alt}
+          className={`w-auto h-full object-cover rounded hover:shadow-2xl ${
+            className || ""
+          }`}
+          onLoad={onLoad}
+          onError={onError}
+          {...props}
+        />
       </button>
 
       {isExpanded && (

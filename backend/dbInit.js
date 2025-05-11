@@ -49,6 +49,8 @@ async function initializeDatabase() {
         online_links JSONB DEFAULT '[]',
         relevant_queries JSONB DEFAULT '[]',
         product_colors JSONB DEFAULT '[]',
+        settings JSONB DEFAULT '{"useOnlineContext": true, "useDatabase": true}',
+        chosen_pdfs JSONB DEFAULT '[]',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
@@ -64,16 +66,6 @@ async function initializeDatabase() {
       );
     `);
 
-    // Create products table
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS products (
-        id SERIAL PRIMARY KEY,
-        title VARCHAR(255) NOT NULL,
-        info TEXT NOT NULL,
-        color VARCHAR(20) DEFAULT 'blue',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
 
     await db.query("COMMIT"); // Commit the transaction
     console.log("Database tables ensured.");

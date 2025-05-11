@@ -1,6 +1,7 @@
 import React, { Suspense } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Loader from "./components/Loader";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 // Lazy load the pages for better performance
 const Home = React.lazy(() => import("./pages/Home"));
@@ -12,7 +13,14 @@ function App() {
       <Suspense fallback={<Loader />}>
         <Routes>
           <Route path="/" element={<Login />} />
-          <Route path="/home" element={<Home />} />
+          <Route
+            path="/home"
+            element={
+              <ProtectedRoute>
+                <Home />
+              </ProtectedRoute>
+            }
+          />
         </Routes>
       </Suspense>
     </BrowserRouter>

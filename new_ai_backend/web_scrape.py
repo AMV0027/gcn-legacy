@@ -137,7 +137,7 @@ def summarize_text(text: str, max_length: int = 500, min_length: int = 150) -> s
         # Fallback: return truncated original text
         return clean_and_normalize_text(text[:1000] + "...")
 
-def fast_scrape_webpage(url: str) -> str:
+def fast_scrape_webpage(url: str) -> Optional[str]:
     """Scrape webpage content using requests with robust error handling."""
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
@@ -166,26 +166,26 @@ def fast_scrape_webpage(url: str) -> str:
         main_content = next((area for area in content_areas if area is not None), None)
         
         if not main_content:
-            return ""
+            return None
             
         # Extract and clean text
         text = main_content.get_text(separator=' ', strip=True)
         text = clean_and_normalize_text(text)
         
-        return text if len(text) > 50 else ""
+        return text if len(text) > 50 else None
         
     except requests.exceptions.RequestException as e:
         print(f"Request error for {url}: {e}")
-        return ""
+        return None
     except Exception as e:
         print(f"Unexpected error scraping {url}: {e}")
-        return ""
+        return None
 
-async def scrape_webpage(url: str) -> str:
+async def scrape_webpage(url: str) -> Optional[str]:
     """Scrape webpage with fallback to Playwright for dynamic content."""
     # Try fast method first
     text = fast_scrape_webpage(url)
-    if text:
+    if text is not None:
         return summarize_text(text)
         
     # Fallback to Playwright for dynamic sites
@@ -206,7 +206,7 @@ async def scrape_webpage(url: str) -> str:
                 
             except Exception as e:
                 print(f"Page load error: {e}")
-                return ""
+                return None
             finally:
                 await browser.close()
 
@@ -228,19 +228,19 @@ async def scrape_webpage(url: str) -> str:
             main_content = next((area for area in content_areas if area is not None), None)
             
             if not main_content:
-                return ""
+                return None
 
             text = main_content.get_text(separator=' ', strip=True)
             text = clean_and_normalize_text(text)
             
             if len(text) < 50:
-                return ""
+                return None
                 
             return summarize_text(text)
             
     except Exception as e:
         print(f"Playwright error for {url}: {e}")
-        return ""
+        return None
 
 async def get_online_context(query: str, num_results: int = 3) -> Tuple[str, List[dict]]:
     """Get and process online content with robust error handling."""
@@ -259,7 +259,7 @@ async def get_online_context(query: str, num_results: int = 3) -> Tuple[str, Lis
                 url = result["url"]
                 content = await scrape_webpage(url)
                 
-                if content and len(content) > 100:
+                if content is not None and len(content) > 100:
                     formatted_content.append(f"url: {url}\ncontent: {content}")
                     used_links.append({
                         "url": url,

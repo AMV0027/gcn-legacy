@@ -1,23 +1,13 @@
 import React, { useState, useRef, useEffect } from "react";
-import {
-  FaPaperPlane,
-  FaSpinner,
-  FaTrash,
-  FaCopy,
-  FaPlus,
-} from "react-icons/fa";
+import { FaCopy } from "react-icons/fa";
 import { RiChatNewLine } from "react-icons/ri";
 import StyledMarkdown from "../components/StyledMarkdown";
-import Image from "../components/Image";
-import { BsGlobe2 } from "react-icons/bs";
-import { AiOutlinePlus } from "react-icons/ai";
+import { BsGlobe2, BsDatabase } from "react-icons/bs";
 import TextToSpeech from "../components/TextToSpeech";
-import { SiBookstack } from "react-icons/si";
 import { RiMenu3Line } from "react-icons/ri";
 import ProductModal from "../components/ProductModal";
 import DocumentModal from "../components/DocumentModal";
 import RelevantQueries from "../components/RelevantQueries";
-import PageTooltip from "../components/PageTooltip";
 import SearchBar from "../components/SearchBar";
 import OnlineImages from "../components/OnlineImages";
 import OnlineVideos from "../components/OnlineVideos";
@@ -27,6 +17,8 @@ import HeroSection from "../components/HeroSection";
 import AsideChatHistory from "../components/AsideChatHistory";
 import Header from "../components/Header";
 import { QueryResultSkeleton } from "../components/AnswerSkeleton";
+import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
 const Home = () => {
   const [query, setQuery] = useState("");
@@ -50,21 +42,29 @@ const Home = () => {
   const textareaRef = useRef(null);
   const [error, setError] = useState(null);
   const [isDocumentModalOpen, setIsDocumentModalOpen] = useState(false);
-  const [randomQueries, setRandomQueries] = useState([]);
   const [imageErrors, setImageErrors] = useState({});
-
-  const handleFetch = async () => {
-    const data = await fetchMetadata(url);
-    setMetadata(data);
-  };
+  const [pdfList, setPdfList] = useState([]);
+  const [chosenPdfs, setChosenPdfs] = useState([]);
+  const [settings, setSettings] = useState({
+    useOnlineContext: false,
+    useDatabase: true,
+  });
+  const navigate = useNavigate();
 
   useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/", { replace: true });
+      return;
+    }
+
     const savedQueries = JSON.parse(
       localStorage.getItem("recentQueries") || "[]"
     );
     setRecentQueries(savedQueries);
     fetchChatList();
-  }, []);
+    fetchPdfList();
+  }, [navigate]);
 
   useEffect(() => {
     const fetchMetadataWithDelay = async (link, index) => {
@@ -100,24 +100,6 @@ const Home = () => {
     fetchProducts();
   }, []);
 
-  useEffect(() => {
-    const fetchRandomQueries = async () => {
-      try {
-        const response = await fetch(
-          "http://localhost:5000/api/random-product-queries"
-        );
-        if (response.ok) {
-          const data = await response.json();
-          setRandomQueries(data.queries || []);
-        }
-      } catch (error) {
-        console.error("Error fetching random queries:", error);
-      }
-    };
-
-    fetchRandomQueries();
-  }, []);
-
   const fetchChatList = async () => {
     try {
       const response = await fetch("http://localhost:5000/api/chat-list");
@@ -128,6 +110,20 @@ const Home = () => {
     } catch (error) {
       console.error("Error fetching chat list:", error);
       return null;
+    }
+  };
+
+  const fetchPdfList = async (searchTerm = "") => {
+    try {
+      const response = await axios.get(
+        `http://localhost:5000/api/search-pdfs${
+          searchTerm ? `?search_query=${searchTerm}` : ""
+        }`
+      );
+      setPdfList(response.data.results || []);
+    } catch (error) {
+      console.error("Error fetching PDFs:", error);
+      setPdfList([]);
     }
   };
 
@@ -167,6 +163,10 @@ const Home = () => {
     }
   };
 
+  const handleSettingsChange = (newSettings) => {
+    setSettings(newSettings);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -196,6 +196,11 @@ const Home = () => {
           query: query,
           org_query: query,
           chat_id: selectedChat?.chat_id || null,
+          settings: {
+            useOnlineContext: settings.useOnlineContext,
+            useDatabase: settings.useDatabase,
+          },
+          chosen_pdfs: chosenPdfs.map((pdf) => pdf.name),
         }),
       });
 
@@ -219,15 +224,17 @@ const Home = () => {
           online_videos: data.online_videos || [],
           online_links: data.online_links || [],
           relevant_queries: data.related_queries || [],
+          status: data.settings,
         },
       ]);
+
+      // Reset chosen PDFs after submission
+      setChosenPdfs([]);
 
       // Update chat name and refresh chat list if this is a new chat
       if (data.chat_name && !selectedChat) {
         setChatName(data.chat_name);
-        // Refresh chat list to get the updated name
         const updatedChatList = await fetchChatList();
-        // Select the new chat
         const newChat = updatedChatList.find(
           (chat) => chat.chat_id === data.chatId
         );
@@ -262,6 +269,10 @@ const Home = () => {
       online_images: chat.online_images,
       online_videos: chat.online_videos,
       relevant_queries: chat.relevant_queries,
+      status: chat.settings || {
+        useDatabase: true,
+        useOnlineContext: true,
+      },
     });
     await fetchChatHistory(chat.chat_id);
   };
@@ -273,9 +284,26 @@ const Home = () => {
       );
       if (!response.ok) throw new Error("Failed to fetch chat history");
       const messages = await response.json();
-      setChatMessages(messages);
-      if (messages.length > 0) {
-        setResults(messages[messages.length - 1]);
+
+      // Ensure each message has a status field with default values
+      const processedMessages = messages.map((msg) => ({
+        ...msg,
+        status: msg.settings || {
+          useDatabase: true,
+          useOnlineContext: true,
+        },
+      }));
+
+      setChatMessages(processedMessages);
+      if (processedMessages.length > 0) {
+        const lastMessage = processedMessages[processedMessages.length - 1];
+        setResults({
+          ...lastMessage,
+          status: lastMessage.settings || {
+            useDatabase: true,
+            useOnlineContext: true,
+          },
+        });
       }
     } catch (error) {
       console.error("Error fetching chat history:", error);
@@ -400,18 +428,14 @@ const Home = () => {
     const newValue = e.target.value;
     setQuery(newValue);
 
-    // Handle @ mentions with improved detection
+    // Handle @ mentions for PDFs
     const cursorPosition = e.target.selectionStart;
     const textBeforeCursor = newValue.slice(0, cursorPosition);
-    const textAfterCursor = newValue.slice(cursorPosition);
     const match = textBeforeCursor.match(/@([^\s]*)$/);
 
-    if (match && products.length > 0) {
-      const searchTerm = match[1].toLowerCase();
-      const filtered = products.filter((p) =>
-        p.title.toLowerCase().includes(searchTerm)
-      );
-      setFilteredProducts(filtered);
+    if (match) {
+      const searchTerm = match[1];
+      fetchPdfList(searchTerm);
       setShowSuggestions(true);
       setSuggestionIndex(0);
     } else {
@@ -505,6 +529,57 @@ const Home = () => {
     });
   };
 
+  const insertPdf = (pdf, textareaElement) => {
+    if (!textareaElement) return;
+
+    const cursorPosition = textareaElement.selectionStart;
+    const textBeforeCursor = query.slice(0, cursorPosition);
+    const textAfterCursor = query.slice(cursorPosition);
+
+    // Find the last @ symbol before cursor
+    const lastAtIndex = textBeforeCursor.lastIndexOf("@");
+    if (lastAtIndex === -1) return;
+
+    // Get the text between @ and cursor
+    const textAfterAt = textBeforeCursor.slice(lastAtIndex);
+    const matchAfterAt = textAfterAt.match(/@(\S*)/);
+
+    // Calculate where to end the replacement
+    const replaceEnd = matchAfterAt
+      ? cursorPosition - (textAfterAt.length - matchAfterAt[0].length)
+      : cursorPosition;
+
+    // Construct the new text
+    const needsSpace =
+      !textAfterCursor.startsWith(" ") && textAfterCursor.length > 0;
+    const newText =
+      textBeforeCursor.slice(0, lastAtIndex) +
+      `@${pdf.name}` +
+      (needsSpace ? " " : "") +
+      textAfterCursor.slice(replaceEnd - cursorPosition);
+
+    // Update the query
+    setQuery(newText);
+
+    // Add to chosen PDFs if not already present
+    setChosenPdfs((prev) => {
+      if (!prev.find((p) => p.name === pdf.name)) {
+        return [...prev, pdf];
+      }
+      return prev;
+    });
+
+    // Calculate new cursor position
+    const newCursorPosition =
+      lastAtIndex + pdf.name.length + 1 + (needsSpace ? 1 : 0);
+
+    // Focus and set cursor position
+    requestAnimationFrame(() => {
+      textareaElement.focus();
+      textareaElement.setSelectionRange(newCursorPosition, newCursorPosition);
+    });
+  };
+
   const handleImageError = (imageUrl) => {
     setImageErrors((prev) => ({
       ...prev,
@@ -517,19 +592,8 @@ const Home = () => {
       <Header
         onProductModalOpen={() => setIsProductModalOpen(true)}
         onDocumentModalOpen={() => setIsDocumentModalOpen(true)}
+        onSettingsChange={handleSettingsChange}
       />
-      <button
-        onClick={() => setChatTab(!chatTab)}
-        className="flex items-center gap-2 ml-4 bg-zinc-900/50 hover:bg-zinc-800/50 p-2 absolute z-30 rounded-lg translate-y-6 backdrop-blur-sm border border-zinc-800/50 hover:border-blue-400/30 transition-all duration-300"
-      >
-        <RiMenu3Line className="text-blue-400" />
-      </button>
-      <a
-        href="/home"
-        className="flex items-center gap-2 ml-4 bg-zinc-900/50 hover:bg-zinc-800/50 p-2 absolute z-30 rounded-lg translate-x-12 translate-y-6 backdrop-blur-sm border border-zinc-800/50 hover:border-blue-400/30 transition-all duration-300"
-      >
-        <RiChatNewLine className="text-blue-400" />
-      </a>
       <div className="flex flex-row">
         <AsideChatHistory
           chatTab={chatTab}
@@ -537,6 +601,7 @@ const Home = () => {
           selectedChat={selectedChat}
           onChatSelect={selectChat}
           onChatDelete={deleteChat}
+          onToggleChat={() => setChatTab(!chatTab)}
         />
         <main className="flex-grow pb-6 py-5 flex flex-col items-center">
           <div className="w-full max-w-6xl mb-8 rounded-lg px-4 sm:px-6">
@@ -570,6 +635,28 @@ const Home = () => {
                           </div>
 
                           <div className="flex flex-row justify-end gap-3 items-center mt-4">
+                            <p className="text-zinc-400 text-sm flex items-center gap-2">
+                              <span className="flex items-center gap-1">
+                                <BsDatabase
+                                  className={
+                                    msg.status.useDatabase === true
+                                      ? "text-green-500"
+                                      : "text-red-500"
+                                  }
+                                />
+                                Database
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <BsGlobe2
+                                  className={
+                                    msg.status.useOnlineContext === true
+                                      ? "text-green-500"
+                                      : "text-red-500"
+                                  }
+                                />
+                                Online Context
+                              </span>
+                            </p>
                             <TextToSpeech text={msg.answer} />
                             <button
                               onClick={() => copyToClipboard(msg.answer)}
@@ -614,10 +701,10 @@ const Home = () => {
               onSubmit={handleSubmit}
               onQueryChange={handleQueryChange}
               showSuggestions={showSuggestions}
-              filteredProducts={filteredProducts}
+              pdfList={pdfList}
               suggestionIndex={suggestionIndex}
               setSuggestionIndex={setSuggestionIndex}
-              insertProduct={insertProduct}
+              insertPdf={insertPdf}
               onTranscriptChange={handleTranscriptChange}
               setShowSuggestions={setShowSuggestions}
             />

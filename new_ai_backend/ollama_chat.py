@@ -17,10 +17,13 @@ def chat_ollama(sys_prompt: str, user_prompt: str, model: str = "gemma3:4b") -> 
         
         # Extract content from response
         if isinstance(response, dict):
+            print(f"AI Response: {response.get('message', {}).get('content', '')}")
             return response.get('message', {}).get('content', '')
         elif hasattr(response, 'message'):
+            print(f"AI Response: {response.message.content}")
             return response.message.content
         else:
+            print(f"AI Response: {str(response)}")
             return str(response)
             
     except Exception as e:
