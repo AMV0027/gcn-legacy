@@ -164,6 +164,7 @@ const Home = () => {
   };
 
   const handleSettingsChange = (newSettings) => {
+    console.log("Settings change requested in Home:", newSettings);
     setSettings(newSettings);
   };
 
@@ -179,6 +180,12 @@ const Home = () => {
       setLoading(true);
       setError(null);
 
+      console.log("Submitting query with settings:", settings);
+      console.log(
+        "Chosen PDFs:",
+        chosenPdfs.map((pdf) => pdf.name)
+      );
+
       // Scroll to the bottom to show the loading skeleton
       setTimeout(() => {
         const chatContainer = document.querySelector(".custom-scrollbar");
@@ -187,21 +194,25 @@ const Home = () => {
         }
       }, 100);
 
+      const payload = {
+        query: query,
+        org_query: query,
+        chat_id: selectedChat?.chat_id || null,
+        settings: {
+          useOnlineContext: settings.useOnlineContext,
+          useDatabase: settings.useDatabase,
+        },
+        chosen_pdfs: chosenPdfs.map((pdf) => pdf.name),
+      };
+
+      console.log("Request payload:", payload);
+
       const response = await fetch("http://localhost:5000/api/query", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          query: query,
-          org_query: query,
-          chat_id: selectedChat?.chat_id || null,
-          settings: {
-            useOnlineContext: settings.useOnlineContext,
-            useDatabase: settings.useDatabase,
-          },
-          chosen_pdfs: chosenPdfs.map((pdf) => pdf.name),
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -212,21 +223,26 @@ const Home = () => {
       }
 
       const data = await response.json();
+      console.log("Response data:", data);
 
       // Update chat messages
-      setChatMessages((prev) => [
-        ...prev,
-        {
-          query: query,
-          answer: data.answer,
-          pdf_references: data.pdf_references || [],
-          online_images: data.online_images || [],
-          online_videos: data.online_videos || [],
-          online_links: data.online_links || [],
-          relevant_queries: data.related_queries || [],
-          status: data.settings,
-        },
-      ]);
+      setChatMessages((prev) => {
+        const newMessages = [
+          ...prev,
+          {
+            query: query,
+            answer: data.answer,
+            pdf_references: data.pdf_references || [],
+            online_images: data.online_images || [],
+            online_videos: data.online_videos || [],
+            online_links: data.online_links || [],
+            relevant_queries: data.related_queries || [],
+            status: data.settings,
+          },
+        ];
+        console.log("Updated chat messages:", newMessages);
+        return newMessages;
+      });
 
       // Reset chosen PDFs after submission
       setChosenPdfs([]);
@@ -240,6 +256,7 @@ const Home = () => {
         );
         if (newChat) {
           setSelectedChat(newChat);
+          console.log("Selected new chat:", newChat);
         }
       }
 
@@ -249,13 +266,6 @@ const Home = () => {
       setError(error.message);
     } finally {
       setLoading(false);
-      // Scroll to the bottom to show the new message
-      setTimeout(() => {
-        const chatContainer = document.querySelector(".custom-scrollbar");
-        if (chatContainer) {
-          chatContainer.scrollTop = chatContainer.scrollHeight;
-        }
-      }, 100);
     }
   };
 
@@ -606,7 +616,7 @@ const Home = () => {
         <main className="flex-grow pb-6 py-5 flex flex-col items-center">
           <div className="w-full max-w-6xl mb-8 rounded-lg px-4 sm:px-6">
             <div className="p-2 sm:p-4">
-              <div className="h-[calc(100vh-180px)] sm:h-[75vh] overflow-y-auto custom-scrollbar">
+              <div className="h-[calc(100vh-180px)] sm:h-[75vh] overflow-y-auto custom-scrollbar pb-12">
                 {chatMessages.length === 0 && !loading ? (
                   <HeroSection onQuerySelect={setQuery} />
                 ) : (
@@ -614,9 +624,16 @@ const Home = () => {
                     {chatMessages.map((msg, index) => (
                       <div
                         key={index}
-                        className="flex w-full font-raleway flex-col sm:flex-row justify-between mb-4 border-b border-zinc-800/50 pb-8 animate-fade-in"
+                        className="flex w-full pr-4 font-raleway flex-col sm:flex-row justify-between mb-4 border-b border-zinc-800/50 pb-8 animate-fade-in"
                       >
-                        <div className="h-full w-full sm:w-3/4">
+                        <div
+                          className={`h-full ${
+                            !msg.online_images?.length &&
+                            !msg.online_videos?.length
+                              ? "w-full"
+                              : "w-full sm:w-3/4"
+                          }`}
+                        >
                           <h1 className="text-2xl sm:text-3xl font-normal mb-4 mt-4 font-poppins text-zinc-200">
                             {msg.query}
                           </h1>
@@ -673,11 +690,17 @@ const Home = () => {
                             onQuerySelect={setQuery}
                           />
                         </div>
-
-                        <div className="w-full sm:w-1/4 p-3 gap-2 flex flex-col justify-start mt-4 sm:mt-0">
-                          <OnlineImages images={msg.online_images} />
-                          <OnlineVideos videos={msg.online_videos} />
-                        </div>
+                        {(msg.online_images?.length > 0 ||
+                          msg.online_videos?.length > 0) && (
+                          <div className="w-full sm:w-1/4 p-3 gap-2 flex flex-col justify-start mt-4 sm:mt-0 sm:sticky sm:top-4 sm:self-start">
+                            {msg.online_images?.length > 0 && (
+                              <OnlineImages images={msg.online_images} />
+                            )}
+                            {msg.online_videos?.length > 0 && (
+                              <OnlineVideos videos={msg.online_videos} />
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))}
                     {loading && (
@@ -704,9 +727,12 @@ const Home = () => {
               pdfList={pdfList}
               suggestionIndex={suggestionIndex}
               setSuggestionIndex={setSuggestionIndex}
-              insertPdf={insertPdf}
               onTranscriptChange={handleTranscriptChange}
               setShowSuggestions={setShowSuggestions}
+              settings={settings}
+              handleSettingsChange={handleSettingsChange}
+              chosenPdfs={chosenPdfs}
+              setChosenPdfs={setChosenPdfs}
             />
           </div>
         </main>

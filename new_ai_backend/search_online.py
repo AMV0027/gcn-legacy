@@ -5,7 +5,7 @@ import os
 from ollama_chat import chat_ollama
 
 # Get SerpAPI key from environment variable
-SERPAPI_KEY = os.getenv("SERPAPI_KEY", "7b866668a4ef6ff88aa85124d24f84e4192ce3c00b235ce94a40378ac20f7e16")
+SERPAPI_KEY = "7b866668a4ef6ff88aa85124d24f84e4192ce3c00b235ce94a40378ac20f7e16"
 
 def get_search_query(search_query: str) -> str:
     """
@@ -56,7 +56,7 @@ def get_search_query(search_query: str) -> str:
         response = chat_ollama(
             system_prompt, 
             f"Generate a specific image search query for: {search_query}", 
-            model="gemma3:4b"
+            model="gemma3:4b-it-qat"
         )
         return response.strip()
     except Exception as e:
@@ -83,9 +83,9 @@ def search_images(search_query: str, max_images: int = 5) -> list:
             "engine": "google_images",
             "q": query,
             "tbm": "isch",
-            "num": max_images,
+            "num": max_images * 2,  # Request more images to account for filtering
             "api_key": SERPAPI_KEY,
-            "tbs": "isz:lt,islt:4mp"  # Filter for higher quality images
+            "ijn": 0  # First page of results
         }
 
         search = GoogleSearch(params)
@@ -95,17 +95,18 @@ def search_images(search_query: str, max_images: int = 5) -> list:
             print(f"SerpAPI error: {results['error']}")
             return []
 
-        # Filter and sort images by relevance
         images = []
         for img in results.get("images_results", []):
-            if "original" in img:
-                # Check if the image title or description contains relevant terms
-                title = img.get("title", "").lower()
-                description = img.get("description", "").lower()
-                if any(term in title or term in description for term in ["compliance", "regulatory", "technical", "professional", "infographic"]):
-                    images.append(img.get("original"))
+            # Try multiple possible image URL keys
+            image_url = img.get("original") or img.get("link") or img.get("image")
+            if image_url:
+                # Basic validation of image URL
+                if image_url.startswith(('http://', 'https://')) and any(ext in image_url.lower() for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']):
+                    images.append(image_url)
+                    if len(images) >= max_images:
+                        break
 
-        return images[:max_images]
+        return images
 
     except Exception as e:
         print(f"Error in search_images function for query '{search_query}': {str(e)}")

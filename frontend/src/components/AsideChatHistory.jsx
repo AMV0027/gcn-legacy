@@ -37,7 +37,7 @@ function AsideChatHistory({
         className={`${
           chatTab
             ? "w-full sm:w-[300px] md:w-[350px] opacity-100 translate-x-0"
-            : " translate-x-[-85%] w-0"
+            : " translate-x-[-90%] w-0"
         }  transition-all duration-700 ease-in-out fixed sm:relative z-20 
         h-[calc(100vh-64px)] flex flex-row justify-center`}
       >

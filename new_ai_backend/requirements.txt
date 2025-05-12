@@ -9,7 +9,7 @@ requests
 httpx
 ollama
 serpapi
-playwright
+
 bs4
 pdfplumber
 

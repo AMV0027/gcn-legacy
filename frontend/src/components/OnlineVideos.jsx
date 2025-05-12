@@ -4,6 +4,8 @@ import { FaPlus } from "react-icons/fa";
 function OnlineVideos({ videos = [] }) {
   const [showVideos, setShowVideos] = useState(false);
 
+  if (!videos || videos.length === 0) return null;
+
   return (
     <div className="flex flex-col gap-3">
       <button

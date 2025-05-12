@@ -66,7 +66,6 @@ async function initializeDatabase() {
       );
     `);
 
-
     await db.query("COMMIT"); // Commit the transaction
     console.log("Database tables ensured.");
     return db;

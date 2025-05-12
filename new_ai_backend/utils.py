@@ -1,5 +1,6 @@
 import json
 import re
+import tiktoken
 
 def extract_json(text: str) -> dict:
     """Extract JSON from text, with better error handling."""
@@ -26,3 +27,12 @@ def extract_json(text: str) -> dict:
                 "key_points": ["Error processing response"]
             }
 
+def count_tokens(text: str) -> int:
+    """Count the number of tokens in a text string using tiktoken."""
+    try:
+        # Use cl100k_base encoding which is used by most recent models
+        encoding = tiktoken.get_encoding("cl100k_base")
+        return len(encoding.encode(text))
+    except Exception as e:
+        print(f"Error counting tokens: {e}")
+        return 0
