@@ -374,6 +374,7 @@ def get_related_queries(query: str) -> List[str]:
 
     Guidelines:
     - Generate questions directly relevant to compliance aspects of the original query
+    - Dont use any other special characters or symbols other than , . ! ?
     - Ensure each question is unique, professional, complete, and ends with a question mark
     - Make questions specific, actionable (10-15 words), and from a compliance professional's perspective
     - For non-compliance queries, provide relevant industry compliance questions
