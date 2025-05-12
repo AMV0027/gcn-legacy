@@ -3,9 +3,16 @@ import re
 from typing import List
 import os
 from ollama_chat import chat_ollama
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Get SerpAPI key from environment variable
-SERPAPI_KEY = "7b866668a4ef6ff88aa85124d24f84e4192ce3c00b235ce94a40378ac20f7e16"
+SERPAPI_KEY = os.getenv('SERPAPI_KEY')
+
+if not SERPAPI_KEY:
+    raise ValueError("SERPAPI_KEY environment variable is not set")
 
 def get_search_query(search_query: str) -> str:
     """

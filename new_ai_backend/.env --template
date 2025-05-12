@@ -1,0 +1,13 @@
+# Ollama Model Configuration
+OLLAMA_MODEL_NAME=gemma3:4b-it-qat
+OLLAMA_HOST=http://localhost:11434
+
+# SerpAPI Configuration
+SERPAPI_KEY=7b866668a4ef6ff88aa85124d24f84e4192ce3c00b235ce94a40378ac20f7e16
+
+# PostgreSQL Database Configuration
+POSTGRES_DB=gcn-legacy
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=12345
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432

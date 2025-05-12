@@ -25,6 +25,7 @@ load_dotenv()
 
 # Get configuration from environment variables
 OLLAMA_MODEL = os.getenv('OLLAMA_MODEL_NAME', 'gemma3:4b-it-qat')
+OLLAMA_HOST = os.getenv('OLLAMA_HOST', 'http://localhost:11434')
 
 from search_online import (
     search_images,
