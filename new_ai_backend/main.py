@@ -383,11 +383,23 @@ def get_related_queries(query: str) -> List[str]:
     """
 
     try:
+        print(f"Generating related queries for query: {query}")
         response = chat_ollama(system_prompt, query, model=OLLAMA_MODEL)
+        print(f"Raw response from Ollama: {response}")
+        
         extracted_json = extract_json(response)
-        return extracted_json.get("relevant_queries", [])
+        print(f"Extracted JSON: {extracted_json}")
+        
+        queries = extracted_json.get("relevant_queries", [])
+        if not queries:
+            print("No relevant queries found in response")
+            return []
+            
+        print(f"Generated {len(queries)} related queries")
+        return queries
     except Exception as e:
-        print(f"Error generating related queries: {e}")
+        print(f"Error generating related queries: {str(e)}")
+        traceback.print_exc()
         return []
 
 def generate_chat_name(query: str) -> str:
@@ -606,8 +618,16 @@ async def generate_chat_name_async(query: str) -> str:
 
 async def get_related_queries_async(query: str) -> List[str]:
     """Async version of get_related_queries."""
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, get_related_queries, query)
+    try:
+        print("Starting async related queries generation")
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(None, get_related_queries, query)
+        print(f"Completed async related queries generation, got {len(result)} queries")
+        return result
+    except Exception as e:
+        print(f"Error in get_related_queries_async: {str(e)}")
+        traceback.print_exc()
+        return []
 
 async def search_images_async(query: str) -> List[str]:
     """Async version of search_images."""
