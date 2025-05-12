@@ -261,7 +261,7 @@ function SearchBar({
   }, [settings]);
 
   return (
-    <div className="w-full max-w-3xl mx-auto px-4 pb-6 -translate-y-12">
+    <div className="w-full max-w-5xl mx-auto px-4 pb-6 -translate-y-12">
       {chosenPdfs.length > 0 && (
         <div
           className="flex flex-wrap gap-2 mb-3 -translate-y-4"

@@ -382,7 +382,7 @@ def get_related_queries(query: str) -> List[str]:
     """
 
     try:
-        response = chat_ollama(system_prompt, query, model="smollm2:1.7b-instruct-q5_K_M")
+        response = chat_ollama(system_prompt, query, model=OLLAMA_MODEL)
         extracted_json = extract_json(response)
         return extracted_json.get("relevant_queries", [])
     except Exception as e:
@@ -411,7 +411,7 @@ def generate_chat_name(query: str) -> str:
     "Output: {\"chat_name\": \"Standards Impact Equipment Design\"}\n"
     """
     try:
-        response = chat_ollama(system_prompt, query, model="smollm2:1.7b-instruct-q5_K_M")
+        response = chat_ollama(system_prompt, query, model=OLLAMA_MODEL)
         # Clean and format the response
         chat_name = response.strip()
         # Remove any quotes and extra whitespace
