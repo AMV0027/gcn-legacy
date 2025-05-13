@@ -12,7 +12,7 @@ def chat_ollama(sys_prompt: str, user_prompt: str, model: str = "gemma3:4b-it-qa
         try:
             client = OpenAI(
             base_url="https://openrouter.ai/api/v1",
-            api_key="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",
+            api_key="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",
             )
 
             completion = client.chat.completions.create(

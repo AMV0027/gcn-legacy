@@ -96,14 +96,11 @@ function SearchBar({
     }
   }, [showSuggestions]);
 
-  const filteredPdfs = pdfList
-    .filter(
-      (pdf) =>
-        pdf.name.toLowerCase().includes(pdfSearchTerm.toLowerCase()) ||
-        (pdf.info &&
-          pdf.info.toLowerCase().includes(pdfSearchTerm.toLowerCase()))
-    )
-    .slice(0, 6);
+  const filteredPdfs = pdfList.filter(
+    (pdf) =>
+      pdf.name.toLowerCase().includes(pdfSearchTerm.toLowerCase()) ||
+      (pdf.info && pdf.info.toLowerCase().includes(pdfSearchTerm.toLowerCase()))
+  );
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -280,8 +277,8 @@ function SearchBar({
     <div className="w-full max-w-5xl mx-auto px-2 sm:px-4 pb-2 sm:pb-4 md:pb-6 relative z-10">
       {chosenPdfs.length > 0 && (
         <div
-          className="flex flex-wrap gap-1 sm:gap-2 mb-2 sm:mb-3 -translate-y-2 sm:-translate-y-4"
-          style={{ transform: `translateY(${translateY}px)` }}
+          className="flex flex-wrap gap-1 sm:gap-2 mb-2 sm:mb-3"
+          style={{ transform: `translateY(${translateY * 0.25}px)` }}
         >
           {chosenPdfs.map((pdf) => (
             <div
@@ -306,7 +303,7 @@ function SearchBar({
       <form
         onSubmit={handleSubmit}
         className="bg-zinc-900/50 backdrop-blur-md shadow-md shadow-black/10 border border-blue-500/30 rounded-lg sm:rounded-2xl overflow-hidden flex flex-col sm:flex-row sm:items-end transition-all"
-        style={{ transform: `translateY(${translateY}px)` }}
+        style={{ transform: `translateY(${translateY * 0.25}px)` }}
       >
         <div className="w-full flex flex-col justify-end">
           <textarea
@@ -415,7 +412,9 @@ function SearchBar({
       {showSuggestions && !loading && (
         <div
           style={{ transform: `translateY(${translateY}px)` }}
-          className="absolute bottom-14 sm:bottom-16 md:bottom-20 left-2 sm:left-4 w-[calc(100%-1rem)] sm:w-72 max-w-xs bg-zinc-900/90 rounded-xl shadow-lg border border-zinc-700 overflow-hidden z-50"
+          className={`${
+            chosenPdfs.length > 0 ? "-translate-y-21" : "-translate-y-12"
+          } absolute bottom-14 sm:bottom-16 md:bottom-20 left-2 sm:left-4 w-[calc(100%-1rem)] sm:w-72 max-w-xs bg-zinc-900/50 backdrop-blur-md rounded-xl shadow-lg border border-zinc-700/50 overflow-hidden z-50 transition-all duration-300 ease-in-out`}
         >
           <div className="p-2 border-b border-zinc-700">
             <div className="relative">

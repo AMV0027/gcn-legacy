@@ -617,7 +617,13 @@ const Home = () => {
         />
         <main className="flex-grow overflow-hidden pb-4 flex flex-col items-center relative">
           <div className="w-full max-w-6xl px-3 md:px-6 flex flex-col h-full">
-            <div className="flex-grow overflow-y-auto custom-scrollbar">
+            <div
+              className={`${
+                chatMessages.length === 0 && !loading
+                  ? "overflow-hidden"
+                  : "overflow-y-auto"
+              } flex-grow custom-scrollbar`}
+            >
               <div className="h-full p-1 md:p-4">
                 {chatMessages.length === 0 && !loading ? (
                   <HeroSection onQuerySelect={setQuery} />

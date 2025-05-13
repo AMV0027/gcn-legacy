@@ -16,6 +16,9 @@ import os
 import asyncio
 from dotenv import load_dotenv
 from utils import extract_json
+import redis
+import pickle
+import hashlib
 
 # Load environment variables
 load_dotenv()
@@ -56,6 +59,12 @@ DB_CONFIG = {
 }
 
 app = FastAPI()
+# Redis Configuration
+redis_client = redis.Redis(host="localhost", port=6380, db=0, decode_responses=True)
+
+# Cache configuration
+CACHE_EXPIRY = 3600  # 1 hour in seconds
+PDF_CACHE_EXPIRY = 86400  # 24 hours in seconds
 
 # Initialize text model
 text_model = SentenceTransformer('all-MiniLM-L6-v2')
@@ -583,6 +592,11 @@ async def search_pdf_documents(search_query: str = None):
 async def delete_pdf_document(pdf_name: str):
     """Delete a PDF document."""
     try:
+        # Remove from cache when deleting
+        cache_keys = redis_client.keys(f"pdf:*:{pdf_name}")
+        if cache_keys:
+            redis_client.delete(*cache_keys)
+            
         success = delete_pdf(pdf_name)
         if not success:
             raise HTTPException(status_code=500, detail="Failed to delete PDF")
@@ -594,6 +608,11 @@ async def delete_pdf_document(pdf_name: str):
 async def update_pdf_document_info(pdf_name: str, new_info: str):
     """Update PDF document information."""
     try:
+        # Clear cache when updating
+        cache_keys = redis_client.keys(f"pdf:*:{pdf_name}")
+        if cache_keys:
+            redis_client.delete(*cache_keys)
+            
         success = update_pdf_info(pdf_name, new_info)
         if not success:
             raise HTTPException(status_code=500, detail="Failed to update PDF info")
@@ -658,6 +677,92 @@ async def process_pdfs(query: str, query_vector: List[float], pdfs: List[str]) -
     
     return context, texts
 
+def get_cache_key(prefix, query):
+    """Generate a cache key for the given prefix and query."""
+    query_hash = hashlib.md5(query.encode()).hexdigest()
+    return f"{prefix}:{query_hash}"
+
+async def get_from_cache(key):
+    """Get data from Redis cache."""
+    try:
+        data = redis_client.get(key)
+        if data:
+            if not redis_client.decode_responses:
+                return pickle.loads(data)
+            return json.loads(data)
+        return None
+    except Exception as e:
+        print(f"Error retrieving from cache: {e}")
+        return None
+
+async def set_in_cache(key, data, expiry=CACHE_EXPIRY):
+    """Set data in Redis cache."""
+    try:
+        if redis_client.decode_responses:
+            redis_client.set(key, json.dumps(data), ex=expiry)
+        else:
+            redis_client.set(key, pickle.dumps(data), ex=expiry)
+    except Exception as e:
+        print(f"Error setting cache: {e}")
+
+async def identify_relevant_pdfs_cached(query: str) -> List[str]:
+    """Cache-wrapper for identify_relevant_pdfs."""
+    cache_key = get_cache_key("pdf_relevance", query)
+    cached_result = await get_from_cache(cache_key)
+    
+    if cached_result:
+        print("Using cached PDF relevance results")
+        return cached_result
+    
+    result = identify_relevant_pdfs(query)
+    await set_in_cache(cache_key, result, PDF_CACHE_EXPIRY)
+    return result
+
+async def search_relevant_texts_cached(query_vector: List[float], pdf_names: List[str], threshold: float = 0.4) -> List[dict]:
+    """Cache-wrapper for search_relevant_texts."""
+    # Create a unique key based on query vector and pdf names
+    vector_str = json.dumps(query_vector)
+    pdfs_str = json.dumps(sorted(pdf_names))
+    cache_key = get_cache_key(f"relevant_texts:{threshold}", f"{vector_str}:{pdfs_str}")
+    
+    cached_result = await get_from_cache(cache_key)
+    if cached_result:
+        print("Using cached relevant texts")
+        return cached_result
+    
+    # Use the existing function in synchronous context
+    result = search_relevant_texts(query_vector, pdf_names, threshold)
+    await set_in_cache(cache_key, result, PDF_CACHE_EXPIRY)
+    return result
+
+async def process_pdfs_cached(query: str, query_vector: List[float], pdfs: List[str]) -> Tuple[str, List[dict]]:
+    """Cache-wrapper for process_pdfs."""
+    if not pdfs:
+        return "", []
+    
+    # Create cache key using query and PDF names
+    pdfs_str = json.dumps(sorted(pdfs))
+    cache_key = get_cache_key("process_pdfs", f"{query}:{pdfs_str}")
+    
+    cached_result = await get_from_cache(cache_key)
+    if cached_result:
+        print(f"Using cached PDF processing results for {len(pdfs)} PDFs")
+        return cached_result[0], cached_result[1]
+    
+    texts = await search_relevant_texts_cached(query_vector, pdfs)
+    
+    if not texts:
+        return "", []
+        
+    context = "\n\n".join([
+        f"[{text['pdf_name']} Page {text['page_number']}] {text['text']}"
+        for text in texts
+    ])
+    
+    result = (context, texts)
+    await set_in_cache(cache_key, result, PDF_CACHE_EXPIRY)
+    return context, texts
+
 @app.post("/api/query")
 async def process_query(request: QueryRequest) -> Dict:
     try:
@@ -665,6 +770,16 @@ async def process_query(request: QueryRequest) -> Dict:
         org_query = request.org_query
         settings = request.settings
         chosen_pdfs = request.chosen_pdfs
+        chat_id = request.chat_id
+        
+        # Check cache for identical query with same settings
+        cache_key = get_cache_key("query_result", f"{query}:{json.dumps(settings)}:{json.dumps(sorted(chosen_pdfs))}")
+        cached_result = await get_from_cache(cache_key)
+        
+        if cached_result and not chat_id:  # Don't use cache for chat-based queries
+            print("Using cached query result")
+            return cached_result
+            
         print(f"Processing query: {query}")
         print(f"Settings: {settings}")
         print(f"Chosen PDFs: {chosen_pdfs}")
@@ -686,28 +801,61 @@ async def process_query(request: QueryRequest) -> Dict:
             
             # Task 2: Process chosen PDFs
             if chosen_pdfs:
-                tasks.append(process_pdfs(query, query_vector, chosen_pdfs))
+                tasks.append(process_pdfs_cached(query, query_vector, chosen_pdfs))
             
             # Task 3: Process additional relevant PDFs
             if settings.get("useDatabase", True):
-                relevant_pdfs = identify_relevant_pdfs(query)
+                # Use the cached version
+                relevant_pdfs_task = identify_relevant_pdfs_cached(query)
+                relevant_pdfs = await relevant_pdfs_task
                 relevant_pdfs = [pdf for pdf in relevant_pdfs if pdf not in chosen_pdfs]
                 if relevant_pdfs:
-                    tasks.append(process_pdfs(query, query_vector, relevant_pdfs))
+                    tasks.append(process_pdfs_cached(query, query_vector, relevant_pdfs))
         
-        # Task 4: Get online context if enabled
+        # Task 4: Get online context if enabled - use cached wrapper
         if settings.get("useOnlineContext", True):
-            tasks.append(get_online_context(query))
+            online_cache_key = get_cache_key("online_context", query)
+            cached_online_context = await get_from_cache(online_cache_key)
+            if cached_online_context:
+                tasks.append(asyncio.create_task(asyncio.sleep(0)))  # Dummy task
+                online_context_cached = cached_online_context
+            else:
+                online_context_task = get_online_context(query)
+                tasks.append(online_context_task)
             
-            # Tasks 5-7: Get additional online content in parallel
-            tasks.extend([
-                search_images_async(query),
-                search_videos_async(query),
-                search_web_links_async(query)
-            ])
+            # Tasks 5-7: Get additional online content in parallel - use cached wrappers
+            online_images_key = get_cache_key("online_images", query)
+            cached_images = await get_from_cache(online_images_key)
+            if cached_images:
+                tasks.append(asyncio.create_task(asyncio.sleep(0)))  # Dummy task 
+                online_images_cached = cached_images
+            else:
+                tasks.append(search_images_async(query))
+                
+            online_videos_key = get_cache_key("online_videos", query)
+            cached_videos = await get_from_cache(online_videos_key)
+            if cached_videos:
+                tasks.append(asyncio.create_task(asyncio.sleep(0)))  # Dummy task
+                online_videos_cached = cached_videos
+            else:
+                tasks.append(search_videos_async(query))
+                
+            online_links_key = get_cache_key("online_links", query)
+            cached_links = await get_from_cache(online_links_key)
+            if cached_links:
+                tasks.append(asyncio.create_task(asyncio.sleep(0)))  # Dummy task
+                online_links_cached = cached_links
+            else:
+                tasks.append(search_web_links_async(query))
         
-        # Task 8: Generate related queries
-        tasks.append(get_related_queries_async(query))
+        # Task 8: Generate related queries - use cached wrapper
+        related_queries_key = get_cache_key("related_queries", query)
+        cached_related_queries = await get_from_cache(related_queries_key)
+        if cached_related_queries:
+            tasks.append(asyncio.create_task(asyncio.sleep(0)))  # Dummy task
+            related_queries_cached = cached_related_queries
+        else:
+            tasks.append(get_related_queries_async(query))
         
         # Execute all tasks concurrently
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -740,23 +888,48 @@ async def process_query(request: QueryRequest) -> Dict:
         
         if settings.get("useOnlineContext", True):
             # Online context
-            if not isinstance(results[current_idx], Exception):
+            if 'online_context_cached' in locals():
+                online_context = online_context_cached
+            elif not isinstance(results[current_idx], Exception):
                 online_context = results[current_idx]
-                if online_context:
-                    context = f"{context}\n\nOnline Sources:\n\n{online_context}"
+                # Cache the result
+                await set_in_cache(online_cache_key, online_context)
+            else:
+                online_context = ""
+                
+            if online_context:
+                context = f"{context}\n\nOnline Sources:\n\n{online_context}"
             current_idx += 1
             
             # Online media
-            if not isinstance(results[current_idx], Exception):
+            if 'online_images_cached' in locals():
+                online_images = online_images_cached
+            elif not isinstance(results[current_idx], Exception):
                 online_images = results[current_idx]
-            if not isinstance(results[current_idx + 1], Exception):
+                await set_in_cache(online_images_key, online_images)
+            
+            if 'online_videos_cached' in locals():
+                online_videos = online_videos_cached
+            elif not isinstance(results[current_idx + 1], Exception):
                 online_videos = results[current_idx + 1]
-            if not isinstance(results[current_idx + 2], Exception):
+                await set_in_cache(online_videos_key, online_videos)
+                
+            if 'online_links_cached' in locals():
+                online_links = online_links_cached
+            elif not isinstance(results[current_idx + 2], Exception):
                 online_links = results[current_idx + 2]
+                await set_in_cache(online_links_key, online_links)
+                
             current_idx += 3
         
         # Get related queries
-        related_queries = results[current_idx] if not isinstance(results[current_idx], Exception) else []
+        if 'related_queries_cached' in locals():
+            related_queries = related_queries_cached
+        elif not isinstance(results[current_idx], Exception):
+            related_queries = results[current_idx]
+            await set_in_cache(related_queries_key, related_queries)
+        else:
+            related_queries = []
         
         # Organize PDF references
         if relevant_texts:
@@ -766,9 +939,18 @@ async def process_query(request: QueryRequest) -> Dict:
         print(f"Context tokens before generating answer: {context_tokens}")
         
         # Generate final answer
-        answer = await generate_final_answer_async(query, context, request.chat_id)
+        answer_cache_key = get_cache_key("answer", f"{query}:{context}")
+        cached_answer = await get_from_cache(answer_cache_key)
         
-        return {
+        if cached_answer and not chat_id:  # Don't use cached answers for chat queries
+            answer = cached_answer
+        else:
+            answer = await generate_final_answer_async(query, context, request.chat_id)
+            if not chat_id:  # Don't cache chat-based answers
+                await set_in_cache(answer_cache_key, answer)
+        
+        # Prepare the final response
+        response = {
             "query": org_query,
             "answer": answer,
             "chat_name": chat_name,
@@ -783,6 +965,12 @@ async def process_query(request: QueryRequest) -> Dict:
             },
             "chosen_pdfs": chosen_pdfs
         }
+        
+        # Cache the final response if not a chat query
+        if not chat_id:
+            await set_in_cache(cache_key, response)
+            
+        return response
 
     except Exception as e:
         print(f"Error in process_query: {str(e)}")

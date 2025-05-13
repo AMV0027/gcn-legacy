@@ -1,4 +1,7 @@
-from serpapi import GoogleSearch
+try:
+    from serpapi import GoogleSearch
+except ImportError:
+    from serpapi.google_search_results import GoogleSearch
 import re
 from typing import List
 import os

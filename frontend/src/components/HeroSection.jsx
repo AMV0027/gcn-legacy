@@ -5,7 +5,7 @@ import Typewriter from "typewriter-effect";
 
 function HeroSection({ onQuerySelect }) {
   return (
-    <div className="flex flex-col justify-center items-center h-auto min-h-[55vh] md:min-h-[60vh] w-full mx-auto font-poppins overflow-hidden pt-6 pb-8 md:pt-10 md:pb-12">
+    <div className="flex flex-col justify-center items-center h-auto min-h-[80vh] w-full mx-auto font-poppins overflow-hidden pt-6 pb-8 md:pt-10 md:pb-12">
       {/* Background gradient effect */}
       <div className="absolute top-0 left-0 right-0 h-full bg-gradient-to-b from-blue-600/10 via-blue-500/5 to-transparent -z-10 pointer-events-none overflow-hidden"></div>
 
