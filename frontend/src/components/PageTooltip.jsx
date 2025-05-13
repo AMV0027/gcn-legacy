@@ -193,7 +193,7 @@ const PageTooltip = ({ text, children }) => {
             ref={tooltipRef}
             id="tooltip"
             role="tooltip"
-            className="tooltip-content fixed text-white/95 bg-zinc-800 text-xs sm:text-sm rounded-xl shadow-2xl border-none p-3 sm:p-4 min-w-[200px] sm:min-w-[260px] max-w-[90vw] sm:max-w-[400px] transition-all duration-200 z-[9999] overflow-auto"
+            className="tooltip-content fixed text-white/95 bg-zinc-800 text-xs sm:text-sm rounded-xl shadow-2xl border-none p-3 sm:p-4 min-w-[200px] sm:min-w-[260px] max-w-[90vw] sm:max-w-[400px] transition-all duration-200 z-[9999]"
             style={{
               top: `${position.y}px`,
               left: `${position.x}px`,

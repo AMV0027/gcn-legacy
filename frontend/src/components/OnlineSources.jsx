@@ -80,23 +80,6 @@ function OnlineSources({ links = [], metadata = {} }) {
                   <FaExternalLinkAlt className="w-2 h-2 sm:w-2.5 sm:h-2.5" />
                 </span>
               </a>
-
-              {/* Tooltip on hover for desktop and medium devices */}
-              <div
-                className="absolute left-0 top-full mt-1 z-10 bg-zinc-800 p-2 rounded-lg border border-blue-400/20 
-                shadow-lg w-[220px] sm:w-[280px] max-w-[90vw] hidden group-hover:block pointer-events-none opacity-0 
-                group-hover:opacity-100 transition-opacity duration-300"
-              >
-                <div className="text-xs text-zinc-300 break-words">
-                  <div className="font-semibold text-blue-400 mb-1">
-                    {getLinkMetadata(link).displayTitle}
-                  </div>
-                  <div className="text-zinc-400 text-[10px] mb-1">{domain}</div>
-                  <div className="text-blue-400 break-all text-[10px]">
-                    {link.length > 40 ? link.slice(0, 40) + "..." : link}
-                  </div>
-                </div>
-              </div>
             </div>
           );
         })}
