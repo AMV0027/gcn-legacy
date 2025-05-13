@@ -1,0 +1,3 @@
+@echo off
+echo Starting GCN Application...
+python start_app.py 
