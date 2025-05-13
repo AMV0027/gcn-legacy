@@ -5,6 +5,7 @@ import { BiSearch } from "react-icons/bi";
 import { AiOutlineExperiment } from "react-icons/ai";
 import SpeechToText from "./SpeechToText";
 import { IoMdClose } from "react-icons/io";
+import PageTooltip from "./PageTooltip";
 
 function SearchBar({
   query = "",
@@ -29,6 +30,21 @@ function SearchBar({
   const [pdfSearchTerm, setPdfSearchTerm] = useState("");
   const searchInputRef = useRef(null);
   const [translateY, setTranslateY] = useState(-20);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect mobile screen size
+  useEffect(() => {
+    const checkIfMobile = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
+
+    checkIfMobile();
+    window.addEventListener("resize", checkIfMobile);
+
+    return () => {
+      window.removeEventListener("resize", checkIfMobile);
+    };
+  }, []);
 
   const getCurrentMode = () => {
     if (settings.useOnlineContext && !settings.useDatabase) return "search";
@@ -261,24 +277,27 @@ function SearchBar({
   }, [settings]);
 
   return (
-    <div className="w-full max-w-5xl mx-auto px-4 pb-6 -translate-y-12">
+    <div className="w-full max-w-5xl mx-auto px-2 sm:px-4 pb-2 sm:pb-4 md:pb-6 relative z-10">
       {chosenPdfs.length > 0 && (
         <div
-          className="flex flex-wrap gap-2 mb-3 -translate-y-4"
+          className="flex flex-wrap gap-1 sm:gap-2 mb-2 sm:mb-3 -translate-y-2 sm:-translate-y-4"
           style={{ transform: `translateY(${translateY}px)` }}
         >
           {chosenPdfs.map((pdf) => (
             <div
               key={pdf.name}
-              className="flex items-center gap-1.5 bg-zinc-800/50 text-zinc-200 px-2 py-1 rounded-lg text-xs border border-zinc-700/30"
+              className="flex items-center gap-1 sm:gap-1.5 bg-zinc-800/50 text-zinc-200 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-lg text-[10px] sm:text-xs border border-zinc-700/30"
             >
-              <span className="text-blue-400">{pdf.name}</span>
+              <span className="text-blue-400 truncate max-w-[100px] sm:max-w-[120px] md:max-w-none">
+                {pdf.name}
+              </span>
               <button
                 type="button"
                 onClick={() => removePdf(pdf)}
-                className="text-zinc-400 hover:text-zinc-200 transition-colors"
+                className="text-zinc-400 hover:text-zinc-200 transition-colors p-0.5"
+                aria-label={`Remove ${pdf.name}`}
               >
-                <IoMdClose className="w-3.5 h-3.5" />
+                <IoMdClose className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
               </button>
             </div>
           ))}
@@ -286,7 +305,7 @@ function SearchBar({
       )}
       <form
         onSubmit={handleSubmit}
-        className="bg-zinc-900/50 -translate-y-5 backdrop-blur-md shadow-md shadow-black/10 border border-zinc-700/30 rounded-2xl overflow-hidden flex items-end transition-all"
+        className="bg-zinc-900/50 backdrop-blur-md shadow-md shadow-black/10 border border-blue-500/30 rounded-lg sm:rounded-2xl overflow-hidden flex flex-col sm:flex-row sm:items-end transition-all"
         style={{ transform: `translateY(${translateY}px)` }}
       >
         <div className="w-full flex flex-col justify-end">
@@ -299,81 +318,104 @@ function SearchBar({
             placeholder={
               loading
                 ? "Processing..."
+                : isMobile
+                ? "Ask anything..."
                 : "Ask anything... (Use @ to mention PDFs)"
             }
-            className="flex-grow text-sm sm:text-base px-4 py-3 bg-transparent text-zinc-100 placeholder-zinc-500 focus:outline-none resize-none max-h-24 min-h-[48px]"
+            className="flex-grow text-sm sm:text-base px-3 sm:px-4 py-2 sm:py-3 bg-transparent text-zinc-100 placeholder-zinc-500 focus:outline-none resize-none max-h-24 min-h-[48px]"
           />
           <div
-            className="flex gap-1 px-4 pb-2"
+            className="flex flex-row justify-between w-full items-center gap-1 px-2 sm:px-4 h-auto pb-2 sm:pb-3"
             onClick={(e) => e.stopPropagation()}
           >
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                handleModeSelect("search");
-              }}
-              className={`border border-zinc-700/30 px-2 py-1 text-xs rounded-md transition-all duration-300 flex flex-row items-center ${
-                getCurrentMode() === "search"
-                  ? "bg-blue-500 text-white"
-                  : "text-zinc-400 hover:bg-zinc-800"
-              }`}
-            >
-              <BiSearch className="inline-block mr-1" /> Search
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                handleModeSelect("research");
-              }}
-              className={`border border-zinc-700/30 px-2 py-1 text-xs rounded-md transition-all duration-300 flex flex-row items-center ${
-                getCurrentMode() === "research"
-                  ? "bg-blue-500 text-white"
-                  : "text-zinc-400 hover:bg-zinc-800"
-              }`}
-            >
-              <BsDatabase className="inline-block mr-1" /> Research
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                handleModeSelect("deep");
-              }}
-              className={`border border-zinc-700/30 px-2 py-1 text-xs rounded-md transition-all duration-300 flex flex-row items-center ${
-                getCurrentMode() === "deep"
-                  ? "bg-blue-500 text-white"
-                  : "text-zinc-400 hover:bg-zinc-800"
-              }`}
-            >
-              <AiOutlineExperiment className="inline-block mr-1" /> Deep
-            </button>
+            <div className="flex flex-row justify-start gap-1 md:gap-3 h-6  no-scrollbar py-0.5">
+              <PageTooltip
+                text={"Search mode allows you to Use Online Context."}
+              >
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleModeSelect("search");
+                  }}
+                  className={`border border-blue-500/30 px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs rounded transition-all duration-300 flex flex-row items-center whitespace-nowrap ${
+                    getCurrentMode() === "search"
+                      ? "bg-blue-500 text-white"
+                      : "text-zinc-400 hover:bg-zinc-800"
+                  }`}
+                >
+                  <BiSearch className="inline-block mr-0.5 sm:mr-1" /> Search
+                </button>
+              </PageTooltip>
+              <PageTooltip text={"Research mode allows you to Use DB Context."}>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleModeSelect("research");
+                  }}
+                  className={`border border-blue-500/30 px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs rounded transition-all duration-300 flex flex-row items-center whitespace-nowrap ${
+                    getCurrentMode() === "research"
+                      ? "bg-blue-500 text-white"
+                      : "text-zinc-400 hover:bg-zinc-800"
+                  }`}
+                >
+                  <BsDatabase className="inline-block mr-0.5 sm:mr-1" />{" "}
+                  Research
+                </button>
+              </PageTooltip>
+              <PageTooltip
+                text={
+                  "Deep Research mode allows you to Use\n both the Online + DB Context."
+                }
+              >
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleModeSelect("deep");
+                  }}
+                  className={`border border-blue-500/30 px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs rounded transition-all duration-300 flex flex-row items-center whitespace-nowrap ${
+                    getCurrentMode() === "deep"
+                      ? "bg-blue-500 text-white"
+                      : "text-zinc-400 hover:bg-zinc-800"
+                  }`}
+                >
+                  <AiOutlineExperiment className="inline-block mr-0.5 sm:mr-1" />{" "}
+                  Deep
+                </button>
+              </PageTooltip>
+            </div>
+            <div className="flex flex-row justify-end items-center gap-1.5 md:gap-3 ml-1">
+              <PageTooltip text={"Voice to Text Input"}>
+                <SpeechToText
+                  onTranscriptChange={onTranscriptChange}
+                  disabled={loading}
+                />
+              </PageTooltip>
+              <PageTooltip text={"Send button to submit your query to GCN.AI"}>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="p-1.5 sm:p-2 rounded-md bg-blue-500/10 border border-blue-400/20 hover:bg-blue-500/20 text-white"
+                  aria-label="Send message"
+                >
+                  {loading ? (
+                    <FaSpinner className="animate-spin w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  ) : (
+                    <FaPaperPlane className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  )}
+                </button>
+              </PageTooltip>
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2 pr-2 pb-2 pl-2 border-l border-zinc-700/30">
-          <SpeechToText
-            onTranscriptChange={onTranscriptChange}
-            disabled={loading}
-          />
-          <button
-            type="submit"
-            disabled={loading}
-            className="p-2 rounded-md bg-blue-500/10 border border-blue-400/20 hover:bg-blue-500/20 text-white"
-          >
-            {loading ? (
-              <FaSpinner className="animate-spin w-4 h-4" />
-            ) : (
-              <FaPaperPlane className="w-4 h-4" />
-            )}
-          </button>
         </div>
       </form>
 
       {showSuggestions && !loading && (
         <div
           style={{ transform: `translateY(${translateY}px)` }}
-          className="-translate-y-24 absolute bottom-20 left-4 w-72 bg-zinc-900/90 rounded-xl shadow-lg border border-zinc-700 overflow-hidden z-50"
+          className="absolute bottom-14 sm:bottom-16 md:bottom-20 left-2 sm:left-4 w-[calc(100%-1rem)] sm:w-72 max-w-xs bg-zinc-900/90 rounded-xl shadow-lg border border-zinc-700 overflow-hidden z-50"
         >
           <div className="p-2 border-b border-zinc-700">
             <div className="relative">
@@ -384,32 +426,36 @@ function SearchBar({
                 onChange={(e) => setPdfSearchTerm(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Search PDFs..."
-                className="w-full bg-zinc-800 text-zinc-200 placeholder-zinc-500 text-sm pl-8 pr-4 py-2 rounded-lg focus:outline-none"
+                className="w-full bg-zinc-800 text-zinc-200 placeholder-zinc-500 text-xs sm:text-sm pl-7 sm:pl-8 pr-3 sm:pr-4 py-1.5 sm:py-2 rounded-lg focus:outline-none"
               />
-              <FaSearch className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-500 text-sm" />
+              <FaSearch className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-500 text-xs sm:text-sm" />
             </div>
           </div>
-          <div className="max-h-[240px] overflow-y-auto">
+          <div className="max-h-[180px] sm:max-h-[240px] overflow-y-auto">
             {filteredPdfs.length > 0 ? (
               filteredPdfs.map((pdf, index) => (
                 <div
                   key={pdf.name}
-                  className={`p-3 cursor-pointer hover:bg-zinc-800 ${
+                  className={`p-2 sm:p-3 cursor-pointer hover:bg-zinc-800 ${
                     index === suggestionIndex ? "bg-zinc-800" : ""
                   }`}
                   onClick={() => handlePdfClick(pdf)}
                   onMouseEnter={() => setSuggestionIndex(index)}
                 >
-                  <div className="font-medium text-blue-400">{pdf.name}</div>
+                  <div className="font-medium text-sm sm:text-base text-blue-400">
+                    {pdf.name}
+                  </div>
                   {pdf.info && (
-                    <div className="text-xs text-zinc-400 truncate mt-1">
+                    <div className="text-[10px] sm:text-xs text-zinc-400 truncate mt-0.5 sm:mt-1">
                       {pdf.info}
                     </div>
                   )}
                 </div>
               ))
             ) : (
-              <div className="p-3 text-zinc-500 text-center">No PDFs found</div>
+              <div className="p-3 text-zinc-500 text-center text-xs sm:text-sm">
+                No PDFs found
+              </div>
             )}
           </div>
         </div>

@@ -603,8 +603,10 @@ const Home = () => {
         onProductModalOpen={() => setIsProductModalOpen(true)}
         onDocumentModalOpen={() => setIsDocumentModalOpen(true)}
         onSettingsChange={handleSettingsChange}
+        onToggleChat={() => setChatTab(!chatTab)}
+        chatTab={chatTab}
       />
-      <div className="flex flex-row">
+      <div className="flex flex-col md:flex-row h-[calc(100vh-64px)]">
         <AsideChatHistory
           chatTab={chatTab}
           chatList={chatList}
@@ -613,102 +615,110 @@ const Home = () => {
           onChatDelete={deleteChat}
           onToggleChat={() => setChatTab(!chatTab)}
         />
-        <main className="flex-grow pb-6 py-5 flex flex-col items-center">
-          <div className="w-full max-w-6xl mb-8 rounded-lg px-4 sm:px-6">
-            <div className="p-2 sm:p-4">
-              <div className="h-[calc(100vh-180px)] sm:h-[75vh] overflow-y-auto custom-scrollbar pb-12">
+        <main className="flex-grow overflow-hidden pb-4 flex flex-col items-center relative">
+          <div className="w-full max-w-6xl px-3 md:px-6 flex flex-col h-full">
+            <div className="flex-grow overflow-y-auto custom-scrollbar">
+              <div className="h-full p-1 md:p-4">
                 {chatMessages.length === 0 && !loading ? (
                   <HeroSection onQuerySelect={setQuery} />
                 ) : (
-                  <div className="space-y-8">
+                  <div className="space-y-6 md:space-y-8 pb-20 md:pb-24">
                     {chatMessages.map((msg, index) => (
                       <div
                         key={index}
-                        className="flex w-full pr-4 font-raleway flex-col sm:flex-row justify-between mb-4 border-b border-zinc-800/50 pb-8 animate-fade-in"
+                        className="flex w-full flex-col justify-between mb-4 border-b border-zinc-800/50 pb-6 md:pb-8 animate-fade-in"
                       >
-                        <div
-                          className={`h-full ${
-                            !msg.online_images?.length &&
-                            !msg.online_videos?.length
-                              ? "w-full"
-                              : "w-full sm:w-3/4"
-                          }`}
-                        >
-                          <h1 className="text-2xl sm:text-3xl font-normal mb-4 mt-4 font-poppins text-zinc-200">
-                            {msg.query}
-                          </h1>
-                          <div className="mb-2 rounded-t-2xl text-lg sm:text-xl mt-2 flex justify-start items-center gap-2">
-                            <p className="text-blue-400 text-md animate-pulse">
-                              <BsGlobe2 />
-                            </p>
-                            <span className="text-zinc-300">Answer</span>
-                          </div>
-                          <OnlineSources
-                            links={msg.online_links}
-                            metadata={metadata}
-                          />
-                          <div className="bg-zinc-800/50 rounded-lg p-4 sm:p-6 border border-zinc-700/50">
-                            <StyledMarkdown content={msg.answer} />
-                          </div>
+                        <h1 className="text-xl md:text-2xl lg:text-3xl font-normal mb-3 md:mb-4 mt-2 md:mt-4 font-poppins text-zinc-200">
+                          {msg.query}
+                        </h1>
+                        <div className="flex flex-col lg:flex-row gap-4 w-full">
+                          <div
+                            className={`${
+                              !msg.online_images?.length &&
+                              !msg.online_videos?.length
+                                ? "w-full"
+                                : "w-full lg:w-3/4"
+                            }`}
+                          >
+                            <div className="mb-2 rounded-t-2xl text-md md:text-lg lg:text-xl mt-2 flex justify-start items-center gap-2">
+                              <p className="text-blue-400 text-sm md:text-md animate-pulse">
+                                <BsGlobe2 />
+                              </p>
+                              <span className="text-zinc-300">Answer</span>
+                            </div>
+                            <OnlineSources
+                              links={msg.online_links}
+                              metadata={metadata}
+                            />
+                            <div className="bg-zinc-800/50 rounded-lg p-3 md:p-4 lg:p-6 border border-zinc-700/50">
+                              <StyledMarkdown content={msg.answer} />
+                            </div>
 
-                          <div className="flex flex-row justify-end gap-3 items-center mt-4">
-                            <p className="text-zinc-400 text-sm flex items-center gap-2">
-                              <span className="flex items-center gap-1">
-                                <BsDatabase
-                                  className={
-                                    msg.status.useDatabase === true
-                                      ? "text-green-500"
-                                      : "text-red-500"
-                                  }
-                                />
-                                Database
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <BsGlobe2
-                                  className={
-                                    msg.status.useOnlineContext === true
-                                      ? "text-green-500"
-                                      : "text-red-500"
-                                  }
-                                />
-                                Online Context
-                              </span>
-                            </p>
-                            <TextToSpeech text={msg.answer} />
-                            <button
-                              onClick={() => copyToClipboard(msg.answer)}
-                              className="text-zinc-400 hover:text-blue-400 transition-colors duration-300"
-                            >
-                              <FaCopy />
-                            </button>
+                            <div className="flex flex-row justify-end gap-2 md:gap-3 items-center mt-3 md:mt-4">
+                              <p className="text-zinc-400 text-xs md:text-sm flex items-center gap-1 md:gap-2">
+                                <span className="flex items-center gap-1">
+                                  <BsDatabase
+                                    className={
+                                      msg.status.useDatabase === true
+                                        ? "text-green-500"
+                                        : "text-red-500"
+                                    }
+                                  />
+                                  <span className="hidden xs:inline">
+                                    Database
+                                  </span>
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <BsGlobe2
+                                    className={
+                                      msg.status.useOnlineContext === true
+                                        ? "text-green-500"
+                                        : "text-red-500"
+                                    }
+                                  />
+                                  <span className="hidden xs:inline">
+                                    Online Context
+                                  </span>
+                                </span>
+                              </p>
+                              <TextToSpeech text={msg.answer} />
+                              <button
+                                onClick={() => copyToClipboard(msg.answer)}
+                                className="text-zinc-400 hover:text-blue-400 transition-colors duration-300"
+                              >
+                                <FaCopy />
+                              </button>
+                            </div>
+
+                            <PdfReferences references={msg.pdf_references} />
+
+                            <RelevantQueries
+                              queries={msg.relevant_queries}
+                              onQuerySelect={setQuery}
+                            />
                           </div>
-
-                          <PdfReferences references={msg.pdf_references} />
-
-                          <RelevantQueries
-                            queries={msg.relevant_queries}
-                            onQuerySelect={setQuery}
-                          />
+                          {(msg.online_images?.length > 0 ||
+                            msg.online_videos?.length > 0) && (
+                            <div className="w-full lg:w-1/4 p-2 md:p-3 gap-2 mt-2 lg:mt-0 lg:sticky lg:top-4 lg:self-start">
+                              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-1 gap-2">
+                                {msg.online_images?.length > 0 && (
+                                  <OnlineImages images={msg.online_images} />
+                                )}
+                                {msg.online_videos?.length > 0 && (
+                                  <OnlineVideos videos={msg.online_videos} />
+                                )}
+                              </div>
+                            </div>
+                          )}
                         </div>
-                        {(msg.online_images?.length > 0 ||
-                          msg.online_videos?.length > 0) && (
-                          <div className="w-full sm:w-1/4 p-3 gap-2 flex flex-col justify-start mt-4 sm:mt-0 sm:sticky sm:top-4 sm:self-start">
-                            {msg.online_images?.length > 0 && (
-                              <OnlineImages images={msg.online_images} />
-                            )}
-                            {msg.online_videos?.length > 0 && (
-                              <OnlineVideos videos={msg.online_videos} />
-                            )}
-                          </div>
-                        )}
                       </div>
                     ))}
                     {loading && (
                       <div
                         key="loading"
-                        className="border-b border-zinc-800/50 pb-8 animate-fade-in"
+                        className="border-b border-zinc-800/50 pb-6 md:pb-8 animate-fade-in"
                       >
-                        <h1 className="text-2xl sm:text-3xl font-normal mb-4 mt-4 font-poppins text-zinc-200">
+                        <h1 className="text-xl md:text-2xl lg:text-3xl font-normal mb-3 md:mb-4 mt-2 md:mt-4 font-poppins text-zinc-200">
                           {query}
                         </h1>
                         <QueryResultSkeleton />
@@ -718,22 +728,24 @@ const Home = () => {
                 )}
               </div>
             </div>
-            <SearchBar
-              query={query}
-              loading={loading}
-              onSubmit={handleSubmit}
-              onQueryChange={handleQueryChange}
-              showSuggestions={showSuggestions}
-              pdfList={pdfList}
-              suggestionIndex={suggestionIndex}
-              setSuggestionIndex={setSuggestionIndex}
-              onTranscriptChange={handleTranscriptChange}
-              setShowSuggestions={setShowSuggestions}
-              settings={settings}
-              handleSettingsChange={handleSettingsChange}
-              chosenPdfs={chosenPdfs}
-              setChosenPdfs={setChosenPdfs}
-            />
+            <div className="w-full pt-2 sticky bottom-0mt-auto">
+              <SearchBar
+                query={query}
+                loading={loading}
+                onSubmit={handleSubmit}
+                onQueryChange={handleQueryChange}
+                showSuggestions={showSuggestions}
+                pdfList={pdfList}
+                suggestionIndex={suggestionIndex}
+                setSuggestionIndex={setSuggestionIndex}
+                onTranscriptChange={handleTranscriptChange}
+                setShowSuggestions={setShowSuggestions}
+                settings={settings}
+                handleSettingsChange={handleSettingsChange}
+                chosenPdfs={chosenPdfs}
+                setChosenPdfs={setChosenPdfs}
+              />
+            </div>
           </div>
         </main>
       </div>

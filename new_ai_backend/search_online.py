@@ -84,13 +84,10 @@ def search_images(search_query: str, max_images: int = 5) -> list:
     Returns a list of image URLs.
     """
     try:
-        query = get_search_query(search_query)
-
+        # Use the search query directly without additional processing
         params = {
             "engine": "google_images",
-            "q": query,
-            "tbm": "isch",
-            "num": max_images * 2,  # Request more images to account for filtering
+            "q": search_query,
             "api_key": SERPAPI_KEY,
             "ijn": 0  # First page of results
         }
@@ -102,21 +99,16 @@ def search_images(search_query: str, max_images: int = 5) -> list:
             print(f"SerpAPI error: {results['error']}")
             return []
 
+        # Extract image URLs from results
         images = []
-        for img in results.get("images_results", []):
-            # Try multiple possible image URL keys
-            image_url = img.get("original") or img.get("link") or img.get("image")
-            if image_url:
-                # Basic validation of image URL
-                if image_url.startswith(('http://', 'https://')) and any(ext in image_url.lower() for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']):
-                    images.append(image_url)
-                    if len(images) >= max_images:
-                        break
-
+        for img in results.get("images_results", [])[:max_images]:
+            if img.get("original"):
+                images.append(img["original"])
+                
         return images
 
     except Exception as e:
-        print(f"Error in search_images function for query '{search_query}': {str(e)}")
+        print(f"Error searching for images: {str(e)}")
         return []
     
 def search_videos(search_query: str, max_videos: int = 5) -> list:

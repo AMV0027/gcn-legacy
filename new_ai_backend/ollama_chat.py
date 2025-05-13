@@ -2,6 +2,7 @@ from ollama import Client
 import json
 from typing import Dict, Any, Optional
 import time
+from openai import OpenAI
 
 def chat_ollama(sys_prompt: str, user_prompt: str, model: str = "gemma3:4b-it-qat", max_retries: int = 3) -> str:
     """
@@ -9,35 +10,30 @@ def chat_ollama(sys_prompt: str, user_prompt: str, model: str = "gemma3:4b-it-qa
     """
     for attempt in range(max_retries):
         try:
-            client = Client(host='http://localhost:11434')
-            
-            # Prepare messages
-            messages = [
-                {'role': 'system', 'content': sys_prompt},
-                {'role': 'user', 'content': user_prompt}
+            client = OpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key="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",
+            )
+
+            completion = client.chat.completions.create(
+            extra_headers={
+                "HTTP-Referer": "<YOUR_SITE_URL>", # Optional. Site URL for rankings on openrouter.ai.
+                "X-Title": "<YOUR_SITE_NAME>", # Optional. Site title for rankings on openrouter.ai.
+            },
+            extra_body={},
+            model="google/gemma-3-12b-it:free",
+            messages=[
+                {
+                "role": "system",
+                "content": sys_prompt,
+                },
+                {
+                "role": "user",
+                "content": user_prompt,
+                }
             ]
-            
-            print(f"Sending request to Ollama (attempt {attempt + 1}/{max_retries})")
-            print(f"Model: {model}")
-            print(f"System prompt: {sys_prompt[:100]}...")
-            print(f"User prompt: {user_prompt}")
-            
-            # Get response
-            response = client.chat(model=model, messages=messages)
-            
-            # Extract content from response
-            if isinstance(response, dict):
-                content = response.get('message', {}).get('content', '')
-                print(f"Received response from Ollama (dict): {content[:100]}...")
-                return content
-            elif hasattr(response, 'message'):
-                content = response.message.content
-                print(f"Received response from Ollama (object): {content[:100]}...")
-                return content
-            else:
-                content = str(response)
-                print(f"Received response from Ollama (other): {content[:100]}...")
-                return content
+            )
+            return completion.choices[0].message.content
                 
         except Exception as e:
             print(f"Error in chat_ollama (attempt {attempt + 1}/{max_retries}): {str(e)}")

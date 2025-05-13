@@ -50,7 +50,7 @@ const SpeechToText = ({ onTranscriptChange }) => {
   return (
     <button
       onClick={toggleListening}
-      className={`bg-zinc-800/50 hover:bg-zinc-700/50 text-zinc-300 rounded-lg border border-zinc-700/50 hover:border-blue-400/30 text-xl p-2 transition-all duration-300 ${
+      className={`p-1.5 sm:p-2 rounded-md bg-blue-500/10 border border-blue-400/20 hover:bg-blue-500/20 text-white ${
         listening ? "text-blue-400 border-blue-400/30" : ""
       }`}
     >

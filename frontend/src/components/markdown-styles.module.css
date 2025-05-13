@@ -1,85 +1,204 @@
 .reactMarkDown {
   color: #e5e7eb;
-  line-height: 1.5;
+  line-height: 1.6;
+  width: 100%;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  hyphens: auto;
 }
 
 .reactMarkDown h1 {
-  font-size: 2rem;
-  font-weight: 500;
-  margin-top: 2rem;
-  margin-bottom: 1rem;
-  color: #f3f4f6;
-}
-
-.reactMarkDown h2 {
-  font-size: 1.5rem;
+  font-size: 1.6rem;
   font-weight: 600;
   margin-top: 1.5rem;
   margin-bottom: 0.75rem;
+  color: #f3f4f6;
+  border-bottom: 1px solid #374151;
+  padding-bottom: 0.5rem;
+}
+
+@media (min-width: 640px) {
+  .reactMarkDown h1 {
+    font-size: 1.8rem;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .reactMarkDown h1 {
+    font-size: 2rem;
+  }
+}
+
+.reactMarkDown h2 {
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin-top: 1.25rem;
+  margin-bottom: 0.75rem;
   color: #e5e7eb;
+  border-bottom: 1px solid #374151;
+  padding-bottom: 0.3rem;
+}
+
+@media (min-width: 640px) {
+  .reactMarkDown h2 {
+    font-size: 1.4rem;
+    margin-top: 1.5rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .reactMarkDown h2 {
+    font-size: 1.5rem;
+  }
 }
 
 .reactMarkDown h3 {
-  font-size: 1.25rem;
-  font-weight: 400;
+  font-size: 1.1rem;
+  font-weight: 500;
   margin-top: 1rem;
   margin-bottom: 0.5rem;
   color: #d1d5db;
 }
 
+@media (min-width: 640px) {
+  .reactMarkDown h3 {
+    font-size: 1.2rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .reactMarkDown h3 {
+    font-size: 1.25rem;
+  }
+}
+
 .reactMarkDown p {
-  font-size: 18px;
+  font-size: 0.95rem;
   font-weight: 400;
   margin-bottom: 1rem;
   white-space: pre-wrap;
 }
 
+@media (min-width: 640px) {
+  .reactMarkDown p {
+    font-size: 1rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .reactMarkDown p {
+    font-size: 1.125rem;
+  }
+}
+
 .reactMarkDown ul {
-  margin-top: 1em;
-  margin-bottom: 1em;
+  margin-top: 0.75em;
+  margin-bottom: 0.75em;
   list-style: disc outside none;
+  padding-left: 1rem;
+}
+
+@media (min-width: 640px) {
+  .reactMarkDown ul {
+    margin-top: 0.85em;
+    margin-bottom: 0.85em;
+    padding-left: 1.5rem;
+  }
 }
 
 .reactMarkDown ul li {
-  margin-left: 2em;
+  margin-left: 1em;
+  margin-bottom: 0.25em;
   display: list-item;
   text-align: -webkit-match-parent;
+  font-size: 0.95rem;
+}
+
+@media (min-width: 640px) {
+  .reactMarkDown ul li {
+    margin-left: 1.5em;
+    font-size: 1rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .reactMarkDown ul li {
+    font-size: 1.125rem;
+  }
 }
 
 .reactMarkDown ol {
-  margin-top: 1em;
-  margin-bottom: 1em;
+  margin-top: 0.75em;
+  margin-bottom: 0.75em;
   list-style: decimal outside none;
+  padding-left: 1rem;
+}
+
+@media (min-width: 640px) {
+  .reactMarkDown ol {
+    margin-top: 0.85em;
+    margin-bottom: 0.85em;
+    padding-left: 1.5rem;
+  }
 }
 
 .reactMarkDown ol li {
-  margin-left: 2em;
+  margin-left: 1em;
+  margin-bottom: 0.25em;
   display: list-item;
   text-align: -webkit-match-parent;
+  font-size: 0.95rem;
+}
+
+@media (min-width: 640px) {
+  .reactMarkDown ol li {
+    margin-left: 1.5em;
+    font-size: 1rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .reactMarkDown ol li {
+    font-size: 1.125rem;
+  }
 }
 
 .reactMarkDown a {
   text-decoration: underline;
+  color: #60a5fa;
+  transition: color 0.15s ease;
 }
 
 .reactMarkDown a:hover {
   text-decoration: underline;
+  color: #93c5fd;
 }
 
 .reactMarkDown code:not(pre code) {
   background-color: #1f2937;
   padding: 0.2em 0.4em;
   border-radius: 0.25rem;
-  font-family: monospace;
-  font-size: 0.875em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.85em;
+  color: #f87171;
 }
 
 .reactMarkDown pre {
   background-color: #1f2937;
-  padding: 1rem;
-  margin: 1rem 0;
+  padding: 0.75rem;
+  margin: 0.75rem 0;
   border-radius: 0.5rem;
   overflow-x: auto;
+  border: 1px solid #374151;
+}
+
+@media (min-width: 640px) {
+  .reactMarkDown pre {
+    padding: 1rem;
+    margin: 1rem 0;
+  }
 }
 
 .reactMarkDown blockquote {
@@ -88,28 +207,89 @@
   margin: 1rem 0;
   font-style: italic;
   color: #9ca3af;
+  background-color: rgba(75, 85, 99, 0.1);
+  padding: 0.5rem 1rem;
+  border-radius: 0 0.25rem 0.25rem 0;
 }
+
 /* Table styling */
 .reactMarkDown table {
   width: 100%;
   border-collapse: collapse;
   margin: 1rem 0;
-  background-color: #00000000; /* Table background color */
+  background-color: rgba(0, 0, 0, 0);
+  font-size: 0.9rem;
+  overflow-x: auto;
+  display: block;
+}
+
+@media (min-width: 768px) {
+  .reactMarkDown table {
+    font-size: 1rem;
+    display: table;
+  }
 }
 
 .reactMarkDown th,
 .reactMarkDown td {
-  padding: 8px 12px;
+  padding: 0.5rem;
   text-align: left;
-  border: 1px solid #ffffff; /* Border for cells */
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+@media (min-width: 640px) {
+  .reactMarkDown th,
+  .reactMarkDown td {
+    padding: 0.75rem;
+  }
 }
 
 .reactMarkDown th {
-  background-color: #ffffff21; /* Header background */
-  color: #f3f4f6; /* Header text color */
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #f3f4f6;
   font-weight: 600;
 }
 
 .reactMarkDown td {
-  color: #e5e7eb; /* Table cell text color */
+  color: #e5e7eb;
+}
+
+.reactMarkDown tr:nth-child(even) {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Image styling */
+.reactMarkDown img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 1rem auto;
+  border-radius: 0.375rem;
+}
+
+/* Code blocks with specific language styling */
+.reactMarkDown .language-js,
+.reactMarkDown .language-javascript,
+.reactMarkDown .language-python,
+.reactMarkDown .language-bash,
+.reactMarkDown .language-css,
+.reactMarkDown .language-html {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/* Horizontal rule */
+.reactMarkDown hr {
+  border: 0;
+  height: 1px;
+  background-color: #374151;
+  margin: 2rem 0;
+}
+
+.reactMarkDown code:not(pre code) {
+  background-color: #1f2937;
+  padding: 0.2em 0.4em;
+  border-radius: 0.25rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.85em;
+  color: #52d7ff;
 }

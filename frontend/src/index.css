@@ -10,6 +10,11 @@
   --white-500: #f8fafc;
 }
 
+body {
+  margin: 0px;
+  padding: 0px;
+}
+
 /* Add these utility classes for dynamic color usage */
 .bg-red-500 {
   background-color: var(--red-500);
