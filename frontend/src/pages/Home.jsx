@@ -654,7 +654,23 @@ const Home = () => {
                               <StyledMarkdown content={msg.answer} />
                             </div>
 
-                            <div className="flex flex-row justify-end gap-2 md:gap-3 items-center mt-3 md:mt-4">
+                            <div className="flex flex-row justify-end gap-2 md:gap-3 items-center mt-1 mb-3">
+                              <p className="flex flex-wrap w-full gap-1.5 items-center">
+                                <span className="text-white/50 text-sm">
+                                  Mentioned pdf:
+                                </span>
+                                {msg.pdf_references &&
+                                  msg.pdf_references.length > 0 &&
+                                  msg.pdf_references.map((item, index) => (
+                                    <span
+                                      key={index}
+                                      className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
+                                      title={item.pdf_info || ""}
+                                    >
+                                      {item.name || item}.pdf
+                                    </span>
+                                  ))}
+                              </p>
                               <p className="text-zinc-400 text-xs md:text-sm flex items-center gap-1 md:gap-2">
                                 <span className="flex items-center gap-1">
                                   <BsDatabase
