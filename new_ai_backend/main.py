@@ -263,7 +263,8 @@ def generate_final_answer(query: str, context: str, chat_id: Optional[str] = Non
         # Get chat history context if available
         chat_context = get_chat_context(chat_id) if chat_id else ""
         
-        system_prompt = f"""You are a regulatory compliance assistant providing structured answers on compliance topics. Use context and follow instructions precisely.
+        system_prompt = f"""
+        You are a regulatory compliance assistant providing structured answers on compliance topics. Use context and follow instructions precisely.
 
         INPUTS:
         Context: {context}

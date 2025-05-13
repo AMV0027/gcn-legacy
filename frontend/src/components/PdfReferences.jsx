@@ -37,7 +37,7 @@ function PdfReferences({ references = [] }) {
 
     // Add contexts (truncate to 200 chars)
     const percentage = Math.round(ref.relevance_score * 100);
-    content.push(`Context(Relevant - ${percentage}%):`);
+    content.push(`Context:`);
     relevantContexts.forEach((ctx) => {
       const pageInfo = ctx.page.includes("-")
         ? `Pages ${ctx.page}`
