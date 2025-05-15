@@ -209,10 +209,10 @@ const PageTooltip = ({ text, children }) => {
             />
             <div
               className={`absolute ${
-                position.positionBelow ? "-top-2" : "-bottom-2"
+                position.positionBelow ? "-top-2" : "-bottom-1"
               } left-1/2 -translate-x-1/2 transform ${
                 position.positionBelow ? "-rotate-45" : "rotate-45"
-              } w-3 h-3 bg-white border border-zinc-200 shadow-sm`}
+              } w-3 h-3 bg-zinc-800 shadow-sm`}
               style={{ boxShadow: "0 2px 8px 0 rgba(60,60,90,0.10)" }}
             />
           </div>,

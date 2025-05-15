@@ -18,4 +18,5 @@ tenacity
 redis
 openai
 tiktoken
-
+together
+PyPDF2

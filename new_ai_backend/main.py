@@ -19,6 +19,8 @@ from utils import extract_json
 import redis
 import pickle
 import hashlib
+import re
+import unicodedata
 
 # Load environment variables
 load_dotenv()
@@ -287,13 +289,13 @@ def generate_final_answer(query: str, context: str, chat_id: Optional[str] = Non
         5. Maintain professional tone
 
         FORMAT:
-        - Start with concise summary
-        - Follow with analysis
-        - Include practical guidance
-        - End with next steps
+        - Begin with a clear, concise overview of the key points
+        - Provide detailed analysis with supporting evidence
+        - Include actionable recommendations and best practices
+        - Conclude with specific next steps and implementation guidance
+        - Use clear section headers and bullet points for readability
 
         MARKDOWN:
-        - Use headings (#, ##, ###)
         - Bullets/numbered lists for steps
         - **Bold**/_italic_ for emphasis
         - Tables for comparative data
@@ -301,10 +303,10 @@ def generate_final_answer(query: str, context: str, chat_id: Optional[str] = Non
         - Blockquotes (>) for regulations
 
         CITATIONS:
-        - Format: `Source Title`
         - Examples: `GDPR Article 5`, `ISO 27001:2022`
         - Cite immediately after relevant info
         - Include section numbers for quotes
+        - Include links in the citations. Examples: [https://www.iec.ch/standards](IEC Standards), [https://www.iso.org/standards](ISO Standards)
 
         CONTENT:
         - Give specific, actionable guidance
@@ -394,6 +396,7 @@ def get_related_queries(query: str) -> List[str]:
     except Exception as e:
         print(f"Error generating related queries: {str(e)}")
         traceback.print_exc()
+        # Return an empty list rather than propagating the error
         return []
 
 def generate_chat_name(query: str) -> str:
@@ -456,6 +459,27 @@ def get_best_matches(extracted_names: List[str], available_names: List[str]) -> 
             best_matches.append(matches[0])
     return best_matches
 
+def sanitize_text(text):
+    """Sanitize text to remove or replace characters that may cause encoding issues."""
+    if text is None:
+        return ""
+        
+    # Replace problematic characters with a space
+    text = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F\uFFF0-\uFFFF]', ' ', text)
+    
+    # Normalize unicode to a compatible form
+    text = unicodedata.normalize('NFKD', text)
+    
+    # Strip control characters
+    text = ''.join(ch for ch in text if unicodedata.category(ch)[0] != 'C')
+    
+    # Limit the length to prevent unwieldy outputs
+    max_length = 500
+    if len(text) > max_length:
+        text = text[:max_length] + "..."
+        
+    return text
+
 def identify_relevant_pdfs(query: str) -> List[str]:
     """Use text similarity and exact matches to identify relevant PDFs."""
     conn = None
@@ -505,12 +529,16 @@ def identify_relevant_pdfs(query: str) -> List[str]:
                 
                 # Store score and best matching chunk for feedback
                 best_chunk_idx = chunk_similarities.index(max_similarity)
+                best_matching_text = chunk_texts[best_chunk_idx]
+                # Sanitize the text to prevent encoding issues
+                sanitized_text = sanitize_text(best_matching_text)
+                
                 all_pdf_scores.append({
                     "name": pdf_name,
                     "score": combined_score,
                     "max_similarity": max_similarity,
                     "avg_similarity": avg_similarity,
-                    "best_matching_text": chunk_texts[best_chunk_idx][:200] + "..." if len(chunk_texts[best_chunk_idx]) > 200 else chunk_texts[best_chunk_idx]
+                    "best_matching_text": sanitized_text
                 })
         
         # Sort all PDFs by relevance
@@ -687,8 +715,6 @@ async def get_from_cache(key):
     try:
         data = redis_client.get(key)
         if data:
-            if not redis_client.decode_responses:
-                return pickle.loads(data)
             return json.loads(data)
         return None
     except Exception as e:
@@ -698,10 +724,7 @@ async def get_from_cache(key):
 async def set_in_cache(key, data, expiry=CACHE_EXPIRY):
     """Set data in Redis cache."""
     try:
-        if redis_client.decode_responses:
-            redis_client.set(key, json.dumps(data), ex=expiry)
-        else:
-            redis_client.set(key, pickle.dumps(data), ex=expiry)
+        redis_client.set(key, json.dumps(data), ex=expiry)
     except Exception as e:
         print(f"Error setting cache: {e}")
 
@@ -813,6 +836,7 @@ async def process_query(request: QueryRequest) -> Dict:
                     tasks.append(process_pdfs_cached(query, query_vector, relevant_pdfs))
         
         # Task 4: Get online context if enabled - use cached wrapper
+        online_context = ""
         if settings.get("useOnlineContext", True):
             online_cache_key = get_cache_key("online_context", query)
             cached_online_context = await get_from_cache(online_cache_key)
@@ -820,7 +844,8 @@ async def process_query(request: QueryRequest) -> Dict:
                 tasks.append(asyncio.create_task(asyncio.sleep(0)))  # Dummy task
                 online_context_cached = cached_online_context
             else:
-                online_context_task = get_online_context(query)
+                # Add await to properly create a task from the coroutine
+                online_context_task = asyncio.create_task(get_online_context(query))
                 tasks.append(online_context_task)
             
             # Tasks 5-7: Get additional online content in parallel - use cached wrappers
@@ -830,7 +855,7 @@ async def process_query(request: QueryRequest) -> Dict:
                 tasks.append(asyncio.create_task(asyncio.sleep(0)))  # Dummy task 
                 online_images_cached = cached_images
             else:
-                tasks.append(search_images_async(query))
+                tasks.append(asyncio.create_task(search_images_async(query)))
                 
             online_videos_key = get_cache_key("online_videos", query)
             cached_videos = await get_from_cache(online_videos_key)
@@ -838,7 +863,7 @@ async def process_query(request: QueryRequest) -> Dict:
                 tasks.append(asyncio.create_task(asyncio.sleep(0)))  # Dummy task
                 online_videos_cached = cached_videos
             else:
-                tasks.append(search_videos_async(query))
+                tasks.append(asyncio.create_task(search_videos_async(query)))
                 
             online_links_key = get_cache_key("online_links", query)
             cached_links = await get_from_cache(online_links_key)
@@ -846,7 +871,7 @@ async def process_query(request: QueryRequest) -> Dict:
                 tasks.append(asyncio.create_task(asyncio.sleep(0)))  # Dummy task
                 online_links_cached = cached_links
             else:
-                tasks.append(search_web_links_async(query))
+                tasks.append(asyncio.create_task(search_web_links_async(query)))
         
         # Task 8: Generate related queries - use cached wrapper
         related_queries_key = get_cache_key("related_queries", query)
@@ -855,7 +880,7 @@ async def process_query(request: QueryRequest) -> Dict:
             tasks.append(asyncio.create_task(asyncio.sleep(0)))  # Dummy task
             related_queries_cached = cached_related_queries
         else:
-            tasks.append(get_related_queries_async(query))
+            tasks.append(asyncio.create_task(get_related_queries_async(query)))
         
         # Execute all tasks concurrently
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -866,18 +891,20 @@ async def process_query(request: QueryRequest) -> Dict:
         # Process PDF results
         current_idx = 1
         if chosen_pdfs:
-            if not isinstance(results[current_idx], Exception):
-                chosen_context, chosen_texts = results[current_idx]
-                pdf_context += f"From Specified PDFs:\n{chosen_context}\n\n"
-                relevant_texts.extend(chosen_texts)
+            if not isinstance(results[current_idx], Exception) and results[current_idx]:
+                if isinstance(results[current_idx], tuple) and len(results[current_idx]) == 2:
+                    chosen_context, chosen_texts = results[current_idx]
+                    pdf_context += f"From Specified PDFs:\n{chosen_context}\n\n"
+                    relevant_texts.extend(chosen_texts)
             current_idx += 1
         
         if settings.get("useDatabase", True) and len(tasks) > current_idx:
-            if not isinstance(results[current_idx], Exception):
-                additional_context, additional_texts = results[current_idx]
-                if additional_context:
-                    pdf_context += f"From Related PDFs:\n{additional_context}"
-                relevant_texts.extend(additional_texts)
+            if not isinstance(results[current_idx], Exception) and results[current_idx]:
+                if isinstance(results[current_idx], tuple) and len(results[current_idx]) == 2:
+                    additional_context, additional_texts = results[current_idx]
+                    if additional_context:
+                        pdf_context += f"From Related PDFs:\n{additional_context}"
+                    relevant_texts.extend(additional_texts)
             current_idx += 1
         
         # Process online results
@@ -907,34 +934,41 @@ async def process_query(request: QueryRequest) -> Dict:
             elif not isinstance(results[current_idx], Exception):
                 online_images = results[current_idx]
                 await set_in_cache(online_images_key, online_images)
+            else:
+                online_images = []
             
             if 'online_videos_cached' in locals():
                 online_videos = online_videos_cached
-            elif not isinstance(results[current_idx + 1], Exception):
+            elif len(results) > current_idx + 1 and not isinstance(results[current_idx + 1], Exception):
                 online_videos = results[current_idx + 1]
                 await set_in_cache(online_videos_key, online_videos)
+            else:
+                online_videos = []
                 
             if 'online_links_cached' in locals():
                 online_links = online_links_cached
-            elif not isinstance(results[current_idx + 2], Exception):
+            elif len(results) > current_idx + 2 and not isinstance(results[current_idx + 2], Exception):
                 online_links = results[current_idx + 2]
                 await set_in_cache(online_links_key, online_links)
+            else:
+                online_links = []
                 
             current_idx += 3
         
         # Get related queries
+        related_queries = []
         if 'related_queries_cached' in locals():
             related_queries = related_queries_cached
-        elif not isinstance(results[current_idx], Exception):
+        elif current_idx < len(results) and not isinstance(results[current_idx], Exception):
             related_queries = results[current_idx]
             await set_in_cache(related_queries_key, related_queries)
-        else:
-            related_queries = []
         
         # Organize PDF references
         if relevant_texts:
             pdf_refs = organize_pdf_references(relevant_texts)
         
+        # Sanitize context to prevent encoding issues
+        context = sanitize_text(context)
         context_tokens = count_tokens(context)
         print(f"Context tokens before generating answer: {context_tokens}")
         
@@ -945,9 +979,13 @@ async def process_query(request: QueryRequest) -> Dict:
         if cached_answer and not chat_id:  # Don't use cached answers for chat queries
             answer = cached_answer
         else:
-            answer = await generate_final_answer_async(query, context, request.chat_id)
-            if not chat_id:  # Don't cache chat-based answers
-                await set_in_cache(answer_cache_key, answer)
+            try:
+                answer = await generate_final_answer_async(query, context, request.chat_id)
+                if not chat_id:  # Don't cache chat-based answers
+                    await set_in_cache(answer_cache_key, answer)
+            except Exception as e:
+                print(f"Error generating final answer: {e}")
+                answer = "I apologize, but I'm having trouble processing your request at the moment. Please try again later."
         
         # Prepare the final response
         response = {

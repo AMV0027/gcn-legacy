@@ -129,7 +129,7 @@ function AsideChatHistory({
                             />
                           ))}
                       </div>
-                      <div className="text-xs font-normal overflow-clip w-5/6 font-poppins text-zinc-300 truncate flex-1">
+                      <div className="text-md font-normal overflow-clip w-5/6 font-poppins text-zinc-300 truncate flex-1">
                         {chat.name.slice(0, 25).replace(`"`, ``) + "..." ||
                           "New Chat"}
                       </div>

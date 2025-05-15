@@ -1,8 +1,8 @@
-from ollama import Client
 import json
 from typing import Dict, Any, Optional
 import time
-from openai import OpenAI
+import openai
+import os
 
 def chat_ollama(sys_prompt: str, user_prompt: str, model: str = "gemma3:4b-it-qat", max_retries: int = 3) -> str:
     """
@@ -10,33 +10,25 @@ def chat_ollama(sys_prompt: str, user_prompt: str, model: str = "gemma3:4b-it-qa
     """
     for attempt in range(max_retries):
         try:
-            client = OpenAI(
-            base_url="https://openrouter.ai/api/v1",
-            api_key="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",
+            client = openai.OpenAI(
+                api_key="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",
+                base_url="https://openrouter.ai/api/v1",
             )
 
-            completion = client.chat.completions.create(
-            extra_headers={
-                "HTTP-Referer": "<YOUR_SITE_URL>", # Optional. Site URL for rankings on openrouter.ai.
-                "X-Title": "<YOUR_SITE_NAME>", # Optional. Site title for rankings on openrouter.ai.
-            },
-            extra_body={},
-            model="google/gemma-3-12b-it:free",
-            messages=[
-                {
-                "role": "system",
-                "content": sys_prompt,
-                },
-                {
-                "role": "user",
-                "content": user_prompt,
-                }
-            ]
+            response = client.chat.completions.create(
+                model="meta-llama/llama-3.3-70b-instruct:free",
+                messages=[
+                    {"role": "system", "content": sys_prompt},
+                    {"role": "user", "content": user_prompt},
+                ]
             )
-            return completion.choices[0].message.content
+
+            time.sleep(1)
+
+            return response.choices[0].message.content
                 
         except Exception as e:
-            print(f"Error in chat_ollama (attempt {attempt + 1}/{max_retries}): {str(e)}")
+            print(f"Error in together AI (attempt {attempt + 1}/{max_retries}): {str(e)}")
             if attempt < max_retries - 1:
                 print(f"Retrying in 2 seconds...")
                 time.sleep(2)
